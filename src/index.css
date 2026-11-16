@@ -1,0 +1,182 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=Cairo:wght@200..1000&display=swap');
+@import 'tailwindcss';
+
+/*
+ * Cross World design tokens.
+ * Surfaces are deep navies derived from the brand blue (#164589); the brand
+ * orange (#F36324) is reserved for primary actions and highlights.
+ * Archivo covers Latin text and Cairo (the typeface used in Cross World's
+ * Arabic campaigns) picks up Arabic glyphs automatically through fallback.
+ */
+@theme {
+  --font-sans: 'Archivo', 'Cairo', ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink-950: #050b17;
+  --color-ink-900: #081226;
+  --color-ink-850: #0b1730;
+  --color-ink-800: #0f1d3a;
+  --color-ink-700: #15284c;
+  --color-ink-600: #1c355f;
+  --color-ink-500: #284673;
+
+  --color-brand-blue: #164589;
+  --color-brand-orange: #f36324;
+  --color-orange-200: #ffc2a1;
+  --color-orange-300: #ff9a66;
+  --color-orange-400: #ff7a3d;
+  --color-orange-600: #d9531a;
+
+  --color-fg: #f4f7fc;
+  --color-fg-muted: #a9b6cc;
+  --color-fg-subtle: #7a89a5;
+  --color-sky: #8dbbff;
+  --color-success: #3ddc97;
+  --color-warning: #ffc857;
+  --color-danger: #ff7070;
+
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-pulse-ring: pulse-ring 1.8s var(--ease-ios) infinite;
+  --animate-spin-slow: spin 28s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(0.8);
+      opacity: 0.7;
+    }
+    100% {
+      transform: scale(2.2);
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  [role='button'],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-orange-400);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: rgb(243 99 36 / 0.35);
+  }
+
+  /* Letter-spacing breaks the joins between Arabic letters, so it is removed in RTL. */
+  [dir='rtl'] * {
+    letter-spacing: 0 !important;
+  }
+
+  /* lucide icons inherit a slightly finer stroke than the library default. */
+  svg.lucide {
+    stroke-width: 1.75;
+    flex-shrink: 0;
+  }
+}
+
+/* Display typography: Archivo stretched and heavy; Arabic falls back to Cairo. */
+@utility heading {
+  font-weight: 800;
+  font-stretch: 116%;
+  letter-spacing: -0.02em;
+}
+
+@utility overline {
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility glass {
+  background-color: rgb(14 28 56 / 0.66);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgb(255 255 255 / 0.09);
+}
+
+@utility glass-dark {
+  background-color: rgb(5 11 23 / 0.38);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgb(255 255 255 / 0.14);
+}
+
+@utility skeleton {
+  background-image: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0.04) 30%,
+    rgb(255 255 255 / 0.1) 50%,
+    rgb(255 255 255 / 0.04) 70%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+/* Film-grain overlay that gives large dark surfaces a tactile, printed feel. */
+@utility grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .animate-pulse-ring,
+  .animate-spin-slow {
+    animation: none;
+  }
+}

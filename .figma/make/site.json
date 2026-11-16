@@ -1,0 +1,23 @@
+{
+  "title": "xworldtravels",
+  "description": "Your Journey, Our Priority. Flights, hotels, holidays, Umrah & Hajj, visa assistance and Egypt security approvals with Cross World Travel and Tourism.",
+  "robots": {
+    "index": false,
+    "allowCrawling": true
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  },
+  "icons": {
+    "icon": "/brand/cross-world-icon.png"
+  },
+  "openGraph": {
+    "title": "Cross World Travel and Tourism",
+    "siteName": "Cross World Travel and Tourism",
+    "image": "/brand/cross-world-share-card-v1.png",
+    "imageAlt": "Cross World Travel and Tourism — the original white-and-orange logo on a blue background.",
+    "imageWidth": 1200,
+    "imageHeight": 630
+  }
+}
