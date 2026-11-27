@@ -62,6 +62,28 @@ The static site and API share an origin in a browser. The device has a separate 
 
 Public paths for your deployed origin are /privacy, /terms and /delete-account. Before publication, confirm the agency contact, legal operator, actual infrastructure providers, backup retention, supplier terms, rights to imagery and the disclosures in both stores. The current app supports agency-assisted bookings. Supplier search, live seat availability, payment capture, refunds and ticket issuance need corresponding commercial integrations if included in the final scope.
 
+## Vercel client review deployment
+
+`Dockerfile.vercel` builds the React client and Django API into one HTTPS service. `vercel.json` schedules bounded account-email delivery every minute and expiry cleanup hourly. The generated Vercel URL can be opened on a phone browser and shared with the client. It does not install an Android or iOS package; Play internal testing and TestFlight still use the Capacitor builds described above. A custom domain is optional for the review link.
+
+Connect the public GitHub repository to a Vercel project, select the `container` framework, and use `mobile-beta` as its production branch. Configure these server-side environment variables for Production:
+
+The container marks itself as running on Vercel, and production accepts only the exact `PUBLIC_ORIGIN`. Keep this review deployment on Production. Preview deployments need their own explicit host and separate environment before they are shared; the app does not trust arbitrary `*.vercel.app` hosts.
+
+| Variable | Use |
+| --- | --- |
+| `DJANGO_SECRET_KEY` | Random key of at least 50 characters. |
+| `PUBLIC_ORIGIN` | Exact HTTPS production origin, such as the project's `vercel.app` URL. |
+| `DATABASE_URL` | Supabase shared transaction-pool URL on port 6543 with `pgbouncer=true`. The app forces verified TLS and disables prepared statements. |
+| `CRON_SECRET` | Random secret of at least 32 characters for Vercel's scheduled requests. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Verified transactional email sender over STARTTLS. |
+
+Keep `DATABASE_URL`, SMTP credentials, `DJANGO_SECRET_KEY`, and `CRON_SECRET` in Vercel's encrypted environment settings. Never expose them through `VITE_*` variables. Do not add the Supabase service-role key to this app; Django uses PostgreSQL directly and enforces the existing per-user access rules.
+
+For a one-off schema migration, temporarily add the Supabase session-pool URL as the Production `DIRECT_URL` secret, then run Django with `TRAVEL_MIGRATIONS=1` through `vercel env run`. This selects `DIRECT_URL` only for that command. Remove `DIRECT_URL` after the migration. Run `setup_desk` once, then create the agency's staff administrator through the production management command. Do not put schema migrations in the container startup command.
+
+Account registration and password-reset mail require the agency's verified sender credentials. Production settings intentionally refuse to start without them. Use test contact details and test travel requests during client review, and do not upload real passport or flight-ticket images until the agency has approved its privacy disclosures, access, retention, and backup arrangements.
+
 ## Search and Egypt approval
 
 A cold start at the root plays the bundled Cross World launch film and opens the guest home. Direct links open their destination immediately. Guests can search in English or Arabic. The travel desk can maintain dated flight options under **Published flights** in the staff console. Only published flights matching the route, date, cabin, stops and local departure time are returned. If no flights match, the traveller can request a quote with the same itinerary.

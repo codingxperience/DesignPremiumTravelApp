@@ -34,3 +34,4 @@ __pycache__/
 *.p12
 *.p8
 *.mobileprovision
+.vercel

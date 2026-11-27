@@ -7,7 +7,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from django.utils import timezone
 
@@ -75,10 +75,22 @@ def deliver(job):
 
 
 class Command(BaseCommand):
-    help = "Deliver up to 100 pending account emails. Run at least once a minute."
+    help = "Deliver a bounded batch of pending account emails."
 
-    def handle(self, *args, **kwargs):
-        for _ in range(100):
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--limit",
+            type=int,
+            default=100,
+            help="Maximum number of pending emails to process (1–100).",
+        )
+
+    def handle(self, *args, **options):
+        limit = options["limit"]
+        if not 1 <= limit <= 100:
+            raise CommandError("The email batch limit must be between 1 and 100.")
+
+        for _ in range(limit):
             job = claim()
             if not job:
                 break

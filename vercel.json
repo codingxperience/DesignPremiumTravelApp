@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "container",
+  "crons": [
+    {
+      "path": "/internal/cron/mail",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/internal/cron/prune",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

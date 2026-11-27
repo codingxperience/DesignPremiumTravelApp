@@ -7,6 +7,7 @@ from uuid import uuid4
 from django.contrib.admin.models import LogEntry
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.sessions.models import Session
 from django.core import mail
 from django.core.management import call_command
 from django.db import close_old_connections, connections
@@ -19,7 +20,7 @@ from django.test import (
 )
 from django.utils import timezone
 
-from .models import EmailDelivery, EmailLink, Quote, Trip
+from .models import DeviceSession, EmailDelivery, EmailLink, Quote, Trip, Window
 from .security import allowance
 
 
@@ -112,6 +113,83 @@ class OperationsTests(TestCase):
         call_command("deliver_mail")
         self.assertEqual(EmailDelivery.objects.count(), 0)
         self.assertEqual(len(mail.outbox), 1)
+
+
+class MailCronTests(TestCase):
+    @override_settings(CRON_SECRET="c" * 48)
+    def test_cron_rejects_missing_and_incorrect_bearer_credentials(self):
+        job = EmailDelivery.objects.create(
+            email="mail@example.test", purpose="register", due=timezone.now()
+        )
+
+        for authorization in ("", "Bearer incorrect"):
+            with self.subTest(authorization=authorization):
+                response = self.client.get(
+                    "/internal/cron/mail", HTTP_AUTHORIZATION=authorization
+                )
+                self.assertEqual(response.status_code, 404)
+
+        job.refresh_from_db()
+        self.assertEqual(job.attempts, 0)
+
+    @override_settings(CRON_SECRET="c" * 48)
+    def test_authorized_cron_processes_at_most_five_mail_jobs(self):
+        due = timezone.now()
+        EmailDelivery.objects.bulk_create(
+            [
+                EmailDelivery(
+                    email=f"mail-{index}@example.test",
+                    purpose="register",
+                    due=due,
+                )
+                for index in range(7)
+            ]
+        )
+
+        with patch("travel.management.commands.deliver_mail.deliver") as deliver:
+            response = self.client.get(
+                "/internal/cron/mail",
+                HTTP_AUTHORIZATION=f"Bearer {'c' * 48}",
+            )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(deliver.call_count, 5)
+        self.assertEqual(EmailDelivery.objects.filter(attempts=1).count(), 5)
+        self.assertEqual(EmailDelivery.objects.filter(attempts=0).count(), 2)
+
+    @override_settings(CRON_SECRET="c" * 48)
+    def test_authorized_prune_cron_removes_expired_security_records(self):
+        expired = timezone.now() - timedelta(seconds=1)
+        user = get_user_model().objects.create_user("expired-session")
+        DeviceSession.objects.create(
+            digest="d" * 64,
+            user=user,
+            auth_hash="old-auth-hash",
+            expires=expired,
+        )
+        EmailLink.objects.create(
+            digest="e" * 64,
+            email="expired@example.test",
+            purpose="register",
+            expires=expired,
+        )
+        Window.objects.create(key="w" * 64, expires=expired)
+        Session.objects.create(
+            session_key="expired-session-key",
+            session_data="",
+            expire_date=expired,
+        )
+
+        response = self.client.get(
+            "/internal/cron/prune",
+            HTTP_AUTHORIZATION=f"Bearer {'c' * 48}",
+        )
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(DeviceSession.objects.count(), 0)
+        self.assertEqual(EmailLink.objects.count(), 0)
+        self.assertEqual(Window.objects.count(), 0)
+        self.assertEqual(Session.objects.count(), 0)
 
 
 class ConcurrentWrites(TransactionTestCase):

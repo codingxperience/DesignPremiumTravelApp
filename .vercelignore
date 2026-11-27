@@ -1,0 +1,13 @@
+.git/
+.superpowers/
+.venv/
+dist/
+node_modules/
+android/
+ios/
+docs/
+.env*
+README.md
+AGENTS.md
+CLAUDE.md
+VERIFICATION.md

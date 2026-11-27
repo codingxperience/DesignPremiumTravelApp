@@ -8,12 +8,109 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import Client, TestCase, override_settings
+from django.test import Client, RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 from PIL import Image
 
 from .models import Attachment, DeviceSession, EmailLink, Message, Quote, Trip, Window
-from .security import digest
+from .deployment import deployment_security_settings, validate_smtp_settings
+from .security import digest, remote
+
+
+class DeploymentBoundaryTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    @override_settings(VERCEL=True)
+    def test_vercel_rate_limits_use_the_platform_forwarded_client_ip(self):
+        request = self.factory.get(
+            "/api/session", HTTP_X_VERCEL_FORWARDED_FOR="203.0.113.7"
+        )
+
+        self.assertEqual(remote(request), "203.0.113.7")
+
+    @override_settings(VERCEL=True)
+    def test_missing_or_malformed_vercel_client_ip_fails_closed(self):
+        requests = (
+            self.factory.get("/api/session"),
+            self.factory.get(
+                "/api/session",
+                HTTP_X_VERCEL_FORWARDED_FOR="203.0.113.7, 10.0.0.2",
+            ),
+        )
+
+        for request in requests:
+            with self.subTest(headers=request.META):
+                self.assertEqual(remote(request), "unknown")
+
+    @override_settings(VERCEL=False)
+    def test_local_rate_limits_use_remote_addr(self):
+        request = self.factory.get(
+            "/api/session",
+            REMOTE_ADDR="198.51.100.4",
+            HTTP_X_VERCEL_FORWARDED_FOR="203.0.113.7",
+        )
+
+        self.assertEqual(remote(request), "198.51.100.4")
+
+    def test_vercel_preview_host_and_https_origin_are_allowed_explicitly(self):
+        config = deployment_security_settings(
+            "https://cross-world-travel.vercel.app",
+            "cross-world-travel-git-preview-branch.vercel.app",
+            vercel=True,
+        )
+
+        self.assertEqual(
+            config["ALLOWED_HOSTS"],
+            [
+                "cross-world-travel.vercel.app",
+                "cross-world-travel-git-preview-branch.vercel.app",
+            ],
+        )
+        self.assertEqual(
+            config["CSRF_TRUSTED_ORIGINS"],
+            [
+                "https://cross-world-travel.vercel.app",
+                "https://cross-world-travel-git-preview-branch.vercel.app",
+            ],
+        )
+        self.assertEqual(
+            config["SECURE_PROXY_SSL_HEADER"],
+            ("HTTP_X_FORWARDED_PROTO", "https"),
+        )
+
+    def test_non_vercel_settings_do_not_trust_forwarded_headers(self):
+        config = deployment_security_settings(
+            "https://travel.example.com",
+            "attacker.vercel.app",
+            vercel=False,
+        )
+
+        self.assertEqual(config["ALLOWED_HOSTS"], ["travel.example.com"])
+        self.assertEqual(config["CSRF_TRUSTED_ORIGINS"], ["https://travel.example.com"])
+        self.assertIsNone(config["SECURE_PROXY_SSL_HEADER"])
+
+    def test_vercel_deployment_url_rejects_paths_and_credentials(self):
+        for deployment_url in (
+            "travel.vercel.app/other-path",
+            "user@travel.vercel.app",
+            "travel.vercel.app?other=host",
+        ):
+            with self.subTest(deployment_url=deployment_url):
+                with self.assertRaisesRegex(ValueError, "deployment URL"):
+                    deployment_security_settings(
+                        "https://travel.vercel.app",
+                        deployment_url,
+                        vercel=True,
+                    )
+
+    def test_production_mail_requires_authenticated_sender_credentials(self):
+        with self.assertRaisesRegex(ValueError, "SMTP_HOST.*SMTP_USER.*SMTP_PASSWORD.*MAIL_FROM"):
+            validate_smtp_settings("smtp.example.test", "", "", "desk@example.test")
+
+        validate_smtp_settings(
+            "smtp.example.test", "desk@example.test", "smtp-token", "desk@example.test"
+        )
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
