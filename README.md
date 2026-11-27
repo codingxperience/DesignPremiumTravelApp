@@ -64,7 +64,7 @@ Public paths for your deployed origin are /privacy, /terms and /delete-account. 
 
 ## Vercel client review deployment
 
-`Dockerfile.vercel` builds the React client and Django API into one HTTPS service. `vercel.json` schedules bounded account-email delivery every minute and expiry cleanup hourly. The generated Vercel URL can be opened on a phone browser and shared with the client. It does not install an Android or iOS package; Play internal testing and TestFlight still use the Capacitor builds described above. A custom domain is optional for the review link.
+`Dockerfile.vercel` builds the React client and Django API into one HTTPS service. Django runs in Vercel's Frankfurt region (`fra1`) to stay close to the Supabase EU Central database; Vercel serves static assets through its global CDN. `vercel.json` schedules bounded account-email delivery every minute and expiry cleanup hourly. The generated Vercel URL can be opened on a phone browser and shared with the client. It does not install an Android or iOS package; Play internal testing and TestFlight still use the Capacitor builds described above. A custom domain is optional for the review link.
 
 Connect the public GitHub repository to a Vercel project, select the `container` framework, and use `mobile-beta` as its production branch. Configure these server-side environment variables for Production:
 
