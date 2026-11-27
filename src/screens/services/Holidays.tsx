@@ -5,7 +5,7 @@ import { getDestination } from '@/data/destinations'
 import { getPackage, HOLIDAY_PACKAGE_IDS } from '@/data/packages'
 import type { HolidayTheme } from '@/data/types'
 import { cn } from '@/lib/cn'
-import { useI18n, useNav } from '@/state/store'
+import { useI18n, useLiveApp, useNav } from '@/state/store'
 import { Chip } from '@/ui/Controls'
 import { Heading } from '@/ui/Heading'
 import { Img } from '@/ui/Img'
@@ -18,7 +18,8 @@ type Filter = 'all' | HolidayTheme
 const FILTERS: Filter[] = ['all', 'beach', 'culture', 'cruise', 'nature']
 
 export function HolidaysScreen() {
-  const { t, tp, L, money } = useI18n()
+  const live = useLiveApp()
+  const { t, tp, L, money, lang } = useI18n()
   const { push } = useNav()
   const [filter, setFilter] = useState<Filter>('all')
   const packages = HOLIDAY_PACKAGE_IDS.map(getPackage).filter((p) => filter === 'all' || p.theme === filter)
@@ -58,7 +59,7 @@ export function HolidaysScreen() {
                   <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,11,23,0.35),transparent_35%,rgba(5,11,23,0.88))]" />
                   <div className="absolute inset-x-4 top-4 flex items-center gap-2">
                     <Badge tone="glass">{tp('common.nights', travelPackage.nights)}</Badge>
-                    {travelPackage.tag && <Badge tone="solid">{L(travelPackage.tag)}</Badge>}
+                    {!live && travelPackage.tag && <Badge tone="solid">{L(travelPackage.tag)}</Badge>}
                   </div>
                   <div className="absolute inset-x-4 bottom-4">
                     <p className="text-[18px] font-semibold leading-snug text-white">{L(travelPackage.title)}</p>
@@ -70,10 +71,10 @@ export function HolidaysScreen() {
                 </div>
                 <div className="flex items-center gap-3 p-4">
                   <InclusionList includes={travelPackage.includes} className="min-w-0 flex-1" />
-                  <div className="shrink-0 text-end">
+                  {live ? <span className="text-xs text-orange-300">{lang === 'ar' ? 'طلب عرض' : 'Request quote'}</span> : <div className="shrink-0 text-end">
                     <p className="text-[11px] text-fg-subtle">{t('common.from')}</p>
                     <p className="text-[18px] font-semibold tabular-nums">{money(travelPackage.price)}</p>
-                  </div>
+                  </div>}
                   <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-brand-orange text-ink-950">
                     <ArrowUpRight className={cn('size-[18px]', FLIP_RTL)} />
                   </span>

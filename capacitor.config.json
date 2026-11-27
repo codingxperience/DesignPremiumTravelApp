@@ -1,0 +1,12 @@
+{
+  "appId": "com.crossworldtravelagency.travel",
+  "appName": "Cross World Travel",
+  "webDir": "dist",
+  "server": {
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "never"
+  }
+}

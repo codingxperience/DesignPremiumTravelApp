@@ -4,7 +4,7 @@ import { AIRPORTS, getAirport } from '@/data/airports'
 import type { Cabin, Flight } from '@/data/types'
 import { cn } from '@/lib/cn'
 import type { TKey } from '@/lib/i18n'
-import { useI18n } from '@/state/store'
+import { useI18n, useLiveApp } from '@/state/store'
 import { Button } from '@/ui/Button'
 import { Calendar } from '@/ui/Calendar'
 import { Chip, Stepper } from '@/ui/Controls'
@@ -298,6 +298,7 @@ export function PassengersSheet({
   value: { adults: number; children: number; infants: number; cabin: Cabin }
   onApply: (value: { adults: number; children: number; infants: number; cabin: Cabin }) => void
 }) {
+  const live = useLiveApp()
   const { t } = useI18n()
   const [draft, setDraft] = useState(value)
   const { adults, children, infants, cabin } = value
@@ -339,7 +340,7 @@ export function PassengersSheet({
               label={t(row.label)}
               value={draft[row.key]}
               min={row.min}
-              max={row.key === 'infants' ? draft.adults : 8}
+              max={Math.min(row.key === 'infants' ? draft.adults : 8, live ? 9 - draft.adults - draft.children - draft.infants + draft[row.key] : 9)}
               onChange={(next) =>
                 setDraft((current) => {
                   const updated = { ...current, [row.key]: next }

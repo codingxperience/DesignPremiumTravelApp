@@ -17,6 +17,8 @@ export type AppState = {
   nextKey: number
   lang: Lang
   navStyle: NavStyle
+  currency: 'USD' | 'GBP'
+  demoPhone: string
   servicesOpen: boolean
   saved: string[]
   bookings: Booking[]
@@ -34,6 +36,8 @@ export type AppState = {
 }
 
 type Action =
+  | { type: 'DEMO_PHONE'; phone: string }
+  | { type: 'SET_CURRENCY'; currency: 'USD'|'GBP' }
   | { type: 'SET_PHASE'; phase: Phase }
   | { type: 'AUTH_GO'; screen: AuthScreen; dir: 1 | -1 }
   | { type: 'SIGN_IN' }
@@ -67,7 +71,7 @@ type Action =
 
 const PREFS_KEY = 'crossworld.prefs'
 
-function readPrefs(): { lang?: Lang; navStyle?: NavStyle } {
+function readPrefs(): { lang?: Lang; navStyle?: NavStyle; currency?: string } {
   try {
     return JSON.parse(window.localStorage.getItem(PREFS_KEY) ?? '{}')
   } catch {
@@ -89,36 +93,38 @@ function applyScenario(state: AppState, scenario: Scenario): AppState {
   }
 }
 
-function createInitialState(): AppState {
+function createInitialState(live: boolean): AppState {
   const prefs = readPrefs()
   const params = new URLSearchParams(window.location.search)
-  const langParam = params.get('lang')
+  const langParam = params.get('lang') ?? (live ? window.localStorage.getItem('travel-language') : null)
   const navParam = params.get('nav')
   const screenParam = params.get('screen')
 
   const base: AppState = {
-    phase: 'splash',
+    phase: live ? 'app' : 'splash',
     auth: { screen: 'signin', dir: 1 },
     tab: 'explore',
     stack: [],
     nextKey: 1,
     lang: langParam === 'ar' || langParam === 'en' ? langParam : (prefs.lang ?? 'en'),
+    currency: prefs.currency === 'USD' ? 'USD' : 'GBP',
+    demoPhone: '',
     navStyle: navParam === 'orbit' || navParam === 'capsule' || navParam === 'ticket' ? navParam : (prefs.navStyle ?? 'orbit'),
     servicesOpen: false,
-    saved: ['zanzibar', 'maldives'],
-    bookings: SEED_BOOKINGS,
-    applications: SEED_APPLICATIONS,
+    saved: live ? [] : ['zanzibar', 'maldives'],
+    bookings: live ? [] : SEED_BOOKINGS,
+    applications: live ? [] : SEED_APPLICATIONS,
     notificationsRead: false,
     notificationsEnabled: true,
-    chat: SEED_CHAT,
+    chat: live ? [] : SEED_CHAT,
     agentTyping: false,
-    chatSeen: SEED_CHAT.filter((m) => m.from === 'agent').length,
-    cards: SEED_CARDS,
-    defaultCardId: SEED_CARDS[0].id,
+    chatSeen: live ? 0 : SEED_CHAT.filter((m) => m.from === 'agent').length,
+    cards: live ? [] : SEED_CARDS,
+    defaultCardId: live ? '' : SEED_CARDS[0].id,
     hajjRegistered: false,
     toast: null,
   }
-  return isScreenId(screenParam) ? applyScenario(base, buildScenario(screenParam)) : base
+  return !live && isScreenId(screenParam) ? applyScenario(base, buildScenario(screenParam)) : base
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -148,6 +154,8 @@ function reducer(state: AppState, action: Action): AppState {
       return applyScenario(state, action.scenario)
     case 'SET_LANG':
       return { ...state, lang: action.lang }
+    case 'DEMO_PHONE': return {...state,demoPhone:action.phone}
+    case 'SET_CURRENCY': return {...state,currency:action.currency}
     case 'SET_NAV_STYLE':
       return { ...state, navStyle: action.navStyle }
     case 'SET_SERVICES_OPEN':
@@ -211,21 +219,33 @@ function reducer(state: AppState, action: Action): AppState {
 const StateContext = createContext<AppState | null>(null)
 const DispatchContext = createContext<Dispatch<Action> | null>(null)
 
-export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, createInitialState)
+type Navigation = {
+  push: (route: Route) => void
+  pop: () => void
+  setTab: (tab: Tab) => void
+  reset: (tab: Tab, routes?: Route[]) => void
+  openServices: (open: boolean) => void
+}
+export const NavigationContext = createContext<Navigation | null>(null)
+export const LiveContext = createContext(false)
+export function useLiveApp() { return useContext(LiveContext) }
+
+export function StoreProvider({ children, live = false }: { children: ReactNode; live?: boolean }) {
+  const [state, dispatch] = useReducer(reducer, live, createInitialState)
 
   // Remember language and navigation style, and mirror them into the URL so links can be shared.
   useEffect(() => {
     try {
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: state.lang, navStyle: state.navStyle }))
+      window.localStorage.setItem(PREFS_KEY, JSON.stringify({ lang: state.lang, navStyle: state.navStyle, currency: state.currency }))
     } catch {
       // Storage can be unavailable in private browsing; preferences then last for the session.
     }
+    if (live) return
     const url = new URL(window.location.href)
     url.searchParams.set('lang', state.lang)
     url.searchParams.set('nav', state.navStyle)
     window.history.replaceState(null, '', url)
-  }, [state.lang, state.navStyle])
+  }, [state.lang, state.navStyle, state.currency, live])
 
   // The concierge reads the traveller's latest message, types, then replies.
   const lastMessage = state.chat[state.chat.length - 1]
@@ -242,9 +262,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [pendingId, pendingText])
 
   return (
-    <DispatchContext.Provider value={dispatch}>
+    <LiveContext.Provider value={live}><DispatchContext.Provider value={dispatch}>
       <StateContext.Provider value={state}>{children}</StateContext.Provider>
-    </DispatchContext.Provider>
+    </DispatchContext.Provider></LiveContext.Provider>
   )
 }
 
@@ -260,9 +280,10 @@ export function useDispatch(): Dispatch<Action> {
   return dispatch
 }
 
-export function useNav() {
+export function useNav(): Navigation {
   const dispatch = useDispatch()
-  return useMemo(
+  const active = useContext(NavigationContext)
+  const showcase = useMemo(
     () => ({
       push: (route: Route) => dispatch({ type: 'PUSH', route }),
       pop: () => dispatch({ type: 'POP' }),
@@ -272,6 +293,7 @@ export function useNav() {
     }),
     [dispatch],
   )
+  return active ?? showcase
 }
 
 export function useToast() {
@@ -280,7 +302,7 @@ export function useToast() {
 }
 
 export function useI18n() {
-  const { lang } = useAppState()
+  const { lang, currency } = useAppState()
   return useMemo(
     () => ({
       lang,
@@ -289,7 +311,7 @@ export function useI18n() {
       t: (key: TKey, params?: TParams) => translate(lang, key, params),
       tp: (key: TPluralKey, count: number, params?: TParams) => translatePlural(lang, key, count, params),
       L: (value: Localized) => value[lang],
-      money: formatMoney,
+      money: (amount:number) => formatMoney(amount,currency),
       num: (value: number) => formatNumber(lang, value),
       date: (iso: string, options: Intl.DateTimeFormatOptions) => formatDate(lang, iso, options),
       range: (start: string, end: string, options?: Intl.DateTimeFormatOptions) => formatDateRange(lang, start, end, options),
@@ -297,7 +319,7 @@ export function useI18n() {
       clock: (date: Date) => formatClock(lang, date),
       relative: (date: Date) => formatRelative(lang, date, translate(lang, 'status.now')),
     }),
-    [lang],
+    [lang,currency],
   )
 }
 

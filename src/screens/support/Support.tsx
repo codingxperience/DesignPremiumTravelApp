@@ -106,8 +106,8 @@ function Typing() {
   )
 }
 
-export function SupportScreen() {
-  const { t } = useI18n()
+export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
+  const { t, L } = useI18n()
   const { chat, agentTyping, tab, stack, navStyle } = useAppState()
   const dispatch = useDispatch()
   const toast = useToast()
@@ -141,16 +141,16 @@ export function SupportScreen() {
     <section aria-label={t('nav.support')} className="absolute inset-0 flex flex-col bg-ink-900">
       <header className="relative z-10 border-b border-white/[0.06] bg-ink-900/85 px-4 pb-3 pt-[calc(var(--sat)+10px)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <span className="relative">
+          {openRequests ? <span className="grid size-12 place-items-center rounded-full bg-brand-blue"><LogoMark className="h-7" /></span> : <span className="relative">
             <Avatar id={PHOTOS.mariam} alt={t('chat.agentName')} className="size-12" />
             <span aria-hidden className="absolute bottom-0 end-0 size-3.5 rounded-full bg-success ring-[3px] ring-ink-900" />
-          </span>
+          </span>}
           <div className="min-w-0 flex-1">
             <p className="text-[16px] font-semibold">
-              {t('chat.agentName')} <span className="text-[13px] font-medium text-fg-muted">· {t('chat.agentRole')}</span>
+              {openRequests ? L({ en: 'Travel desk', ar: 'مكتب السفر' }) : <>{t('chat.agentName')} <span className="text-[13px] font-medium text-fg-muted">· {t('chat.agentRole')}</span></>}
             </p>
             <p className={cn('text-[12.5px]', agentTyping ? 'text-orange-300' : 'text-success')} aria-live="polite">
-              {agentTyping ? t('chat.typing') : t('chat.online')}
+              {openRequests ? t('brand.full') : agentTyping ? t('chat.typing') : t('chat.online')}
             </p>
           </div>
           <a href={CONTACT.phoneHref} aria-label={t('chat.callAria')} className="grid size-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] transition-colors hover:bg-white/[0.09]">
@@ -174,20 +174,20 @@ export function SupportScreen() {
           <p className="mt-3 text-[13px] font-semibold">{t('brand.full')}</p>
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-fg-muted">
             <Clock3 className="size-3.5" />
-            {t('brand.hours')}
+            {openRequests ? <a href={CONTACT.emailHref}>{CONTACT.email}</a> : t('brand.hours')}
           </p>
         </div>
-        <p className="my-5 text-center text-[11.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">{t('chat.today')}</p>
+        {openRequests ? <div className="my-6 text-center"><p className="text-[14px] leading-relaxed text-fg-muted">{L({ en: 'Open a travel request to message the desk about your itinerary.', ar: 'افتح طلب السفر لمراسلة المكتب بشأن برنامج رحلتك.' })}</p></div> : <><p className="my-5 text-center text-[11.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">{t('chat.today')}</p>
         <ul className="space-y-3" aria-live="polite">
           {chat.map((message) => (
             <Bubble key={message.id} message={message} />
           ))}
           <AnimatePresence>{agentTyping && <Typing />}</AnimatePresence>
-        </ul>
+        </ul></>}
       </div>
 
       <div className="absolute inset-x-0 z-20 px-3" style={{ bottom: `calc(var(--sab) + ${clearance}px)` }}>
-        <div className="no-scrollbar -mx-3 mb-2.5 flex gap-2 overflow-x-auto px-3">
+        {openRequests ? <button type="button" onClick={openRequests} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-orange font-semibold text-ink-950"><SendHorizontal className="size-5" />{L({ en: 'Message about a request', ar: 'مراسلة المكتب بشأن طلب' })}</button> : <><div className="no-scrollbar -mx-3 mb-2.5 flex gap-2 overflow-x-auto px-3">
           {QUICK_REPLIES.map((key) => (
             <button
               key={key}
@@ -244,7 +244,7 @@ export function SupportScreen() {
               </motion.button>
             )}
           </AnimatePresence>
-        </form>
+        </form></>}
       </div>
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[220px] bg-[linear-gradient(0deg,#081226_45%,rgba(8,18,38,0))]" />
     </section>

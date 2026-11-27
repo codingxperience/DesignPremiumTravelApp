@@ -19,3 +19,18 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+
+# Private runtime data
+server/.local-key
+server/.mail/
+server/*.sqlite3*
+server/staticfiles/
+__pycache__/
+.venv/
+
+# Mobile distribution credentials
+*.jks
+*.keystore
+*.p12
+*.p8
+*.mobileprovision

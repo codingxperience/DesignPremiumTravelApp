@@ -1,0 +1,246 @@
+.travel-device,
+.travel-framed {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  color: var(--color-fg);
+  background: var(--color-ink-900);
+}
+.travel-device {
+  height: 100dvh;
+  --sat: max(env(safe-area-inset-top), 12px);
+  --sab: max(env(safe-area-inset-bottom), 10px);
+}
+.travel-framed {
+  --sat: 50px;
+  --sab: 26px;
+}
+.desk-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background:
+    radial-gradient(ellipse 400px 310px at 40% 0%, #14376a99, transparent), var(--color-ink-900);
+  color-scheme: dark;
+}
+.desk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--sat) + 8px) 18px 8px;
+}
+.desk-bar > button:last-child {
+  min-height: 44px;
+  color: var(--color-orange-300);
+  font-size: 13px;
+  font-weight: 600;
+}
+.desk {
+  padding: 0 24px calc(var(--sab) + 120px);
+  overflow-wrap: anywhere;
+}
+.desk h1,
+.desk h2 {
+  font-weight: 800;
+  font-stretch: 116%;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+.desk h1 {
+  font-size: 34px;
+  margin: 24px 0 12px;
+}
+.desk h2 {
+  font-size: 20px;
+  margin: 24px 0 10px;
+}
+.desk p,
+.desk small {
+  line-height: 1.55;
+}
+.desk p {
+  color: var(--color-fg-muted);
+  font-size: 15px;
+  margin: 12px 0;
+}
+.desk .kicker {
+  color: var(--color-orange-300);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-top: 25px;
+}
+.desk .kicker + h1 {
+  margin-top: 8px;
+}
+.desk form,
+.desk label,
+.desk .offer {
+  display: grid;
+  gap: 8px;
+}
+.desk form {
+  gap: 18px;
+  margin-top: 26px;
+}
+.desk label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.desk input,
+.desk select,
+.desk textarea {
+  min-width: 0;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid #ffffff22;
+  border-radius: 16px;
+  background: #0f1d3a;
+  color: var(--color-fg);
+  padding: 12px 15px;
+  font-size: 16px;
+  font-weight: 400;
+}
+.desk input:focus,
+.desk select:focus,
+.desk textarea:focus {
+  outline: 2px solid var(--color-orange-400);
+  outline-offset: 2px;
+}
+.desk small,
+.desk label small {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+.desk .primary,
+.desk .secondary,
+.desk .danger {
+  display: block;
+  min-height: 50px;
+  padding: 12px 20px;
+  border-radius: 17px;
+  font-weight: 700;
+  text-align: center;
+}
+.desk .primary {
+  color: var(--color-ink-950);
+  background: var(--color-brand-orange);
+}
+.desk .secondary {
+  background: #ffffff11;
+  border: 1px solid #ffffff20;
+}
+.desk .danger {
+  background: #ff70701a;
+  color: #ffaaaa;
+  border: 1px solid #ff707044;
+}
+.desk button:disabled {
+  opacity: 0.58;
+}
+.desk .pair {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 12px;
+}
+.desk .links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.desk .links button,
+.desk .text-button,
+.desk .policy a {
+  color: var(--color-orange-300);
+  font-weight: 600;
+  min-height: 44px;
+}
+.desk .text-button {
+  display: block;
+}
+.desk .panel + .panel {
+  margin-top: 28px;
+  border-top: 1px solid #ffffff17;
+}
+.desk .error,
+.desk .notice,
+.desk .status-strip {
+  padding: 12px 15px;
+  border-radius: 14px;
+}
+.desk .error {
+  background: #ff707016;
+  color: #ffadad;
+}
+.desk .notice,
+.desk .status-strip {
+  background: #3ddc9716;
+  color: #96efc7;
+}
+.desk .trip-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: start;
+  padding: 16px;
+  border: 1px solid #ffffff15;
+  background: #ffffff09;
+  border-radius: 18px;
+  margin: 12px 0;
+}
+.desk .trip-row small,
+.desk .trip-row strong {
+  display: block;
+}
+.desk .trip-row > span:last-child {
+  font-size: 12px;
+  color: var(--color-fg-muted);
+}
+.desk .status-strip {
+  display: flex;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.desk .offer,
+.desk .message {
+  padding: 16px;
+  background: #ffffff09;
+  border: 1px solid #ffffff14;
+  border-radius: 18px;
+  margin-top: 12px;
+}
+.desk .offer strong {
+  font-size: 22px;
+}
+.desk .offer p,
+.desk .message p {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.desk .message.staff {
+  border-inline-start: 3px solid var(--color-brand-orange);
+}
+.desk .policy p {
+  margin-top: 8px;
+}
+
+.desk .account input {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+  height: 100%;
+  border-radius: 0;
+}
+.desk .account input:focus {
+  outline: 0;
+}

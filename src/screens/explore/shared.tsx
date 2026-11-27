@@ -2,7 +2,7 @@ import { motion } from 'motion/react'
 import { ArrowUpRight, Bookmark, MapPin } from 'lucide-react'
 import type { Destination } from '@/data/types'
 import { cn } from '@/lib/cn'
-import { useAppState, useDispatch, useI18n, useToast } from '@/state/store'
+import { useLiveApp, useAppState, useDispatch, useI18n, useToast } from '@/state/store'
 import { Img } from '@/ui/Img'
 import { RatingPill } from '@/ui/Misc'
 import { EASE_OUT, FLIP_RTL } from '@/ui/motion'
@@ -53,6 +53,7 @@ export function DestinationCard({
   onOpen: () => void
 }) {
   const { t, L, money, isRtl } = useI18n()
+  const live = useLiveApp()
   const name = L(destination.name)
   return (
     <motion.article
@@ -68,7 +69,7 @@ export function DestinationCard({
       />
       <button type="button" onClick={onOpen} aria-label={t('home.open', { name })} className="absolute inset-0 z-[1] rounded-[28px]" />
       <div className="pointer-events-none absolute inset-x-3.5 top-3.5 z-[2] flex items-start justify-between">
-        <RatingPill rating={destination.rating} />
+        {live ? <span /> : <RatingPill rating={destination.rating} />}
         <SaveButton id={destination.id} name={name} className="pointer-events-auto" />
       </div>
       <div className="pointer-events-none absolute inset-x-4 bottom-4 z-[2]">
@@ -80,7 +81,7 @@ export function DestinationCard({
               <MapPin className="size-3.5" aria-hidden />
               <span className="truncate">{L(destination.region)}</span>
             </p>
-            <p className="mt-1 text-[13px] font-semibold text-white">{t('common.fromPrice', { price: money(destination.priceFrom) })}</p>
+            <p className="mt-1 text-[13px] font-semibold text-white">{live ? t('dest.tab.overview') : t('common.fromPrice', { price: money(destination.priceFrom) })}</p>
           </div>
           <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-white text-ink-950">
             <ArrowUpRight className={cn('size-[18px]', FLIP_RTL)} />

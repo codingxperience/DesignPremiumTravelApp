@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Check,
   ChevronDown,
@@ -22,6 +22,13 @@ import { Segmented } from "@/ui/Controls";
 import { EASE_OUT } from "@/ui/motion";
 import { AppShell } from "./AppShell";
 import { FRAME_HEIGHT, FRAME_WIDTH, PhoneFrame } from "./PhoneFrame";
+
+type Review = {
+  current: string;
+  open: (id: ScreenId) => void;
+  routes: Partial<Record<ScreenId, string>>;
+};
+const ReviewContext = createContext<Review | null>(null);
 
 const NAV_STYLES: NavStyle[] = ["orbit", "capsule", "ticket"];
 const WIDE = 1240;
@@ -175,34 +182,40 @@ function LanguageSwitch({ className }: { className?: string }) {
 function ScreenIndex({ onPick }: { onPick?: () => void }) {
   const state = useAppState();
   const { jump } = useShowcaseActions();
-  const current = currentScreenId(state);
+  const review = useContext(ReviewContext);
+  const current = review?.current ?? currentScreenId(state);
   return (
     <div className="space-y-4">
-      {SCREEN_GROUPS.map((group) => (
+      {SCREEN_GROUPS.filter(
+        (group) => !review || group.screens.some((screen) => review.routes[screen.id]),
+      ).map((group) => (
         <div key={group.title}>
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-fg-subtle">
             {group.title}
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {group.screens.map((screen) => (
-              <button
-                key={screen.id}
-                type="button"
-                onClick={() => {
-                  jump(screen.id);
-                  onPick?.();
-                }}
-                aria-current={current === screen.id ? "page" : undefined}
-                className={cn(
-                  "h-8 rounded-full border px-3 text-[12.5px] font-medium transition-colors duration-200",
-                  current === screen.id
-                    ? "border-brand-orange bg-brand-orange text-ink-950"
-                    : "border-white/[0.09] bg-white/[0.03] text-fg-muted hover:border-white/20 hover:text-fg",
-                )}
-              >
-                {screen.label}
-              </button>
-            ))}
+            {group.screens
+              .filter((screen) => !review || review.routes[screen.id])
+              .map((screen) => (
+                <button
+                  key={screen.id}
+                  type="button"
+                  onClick={() => {
+                    if (review) review.open(screen.id);
+                    else jump(screen.id);
+                    onPick?.();
+                  }}
+                  aria-current={current === screen.id ? "page" : undefined}
+                  className={cn(
+                    "h-8 rounded-full border px-3 text-[12.5px] font-medium transition-colors duration-200",
+                    current === screen.id
+                      ? "border-brand-orange bg-brand-orange text-ink-950"
+                      : "border-white/[0.09] bg-white/[0.03] text-fg-muted hover:border-white/20 hover:text-fg",
+                  )}
+                >
+                  {review && screen.id === "support" ? "Travel desk" : screen.label}
+                </button>
+              ))}
           </div>
         </div>
       ))}
@@ -229,6 +242,7 @@ function PanelHeading({
 }
 
 function IntroPanel() {
+  const review = useContext(ReviewContext);
   return (
     <motion.aside
       initial={{ opacity: 0, x: -20 }}
@@ -237,7 +251,9 @@ function IntroPanel() {
       className="no-scrollbar max-h-full w-full max-w-[360px] justify-self-end overflow-y-auto py-10"
     >
       <LogoLockup className="w-[136px]" />
-      <p className="overline mt-10 text-orange-300">Mobile app prototype · v1.0</p>
+      <p className="overline mt-10 text-orange-300">
+        {review ? "Cross World Travel · Mobile app" : "Mobile app prototype · v1.0"}
+      </p>
       <h1 className="heading mt-4 text-[44px] leading-[1.02]">Your journey, our priority.</h1>
       <p className="mt-3 text-[22px] font-bold text-orange-300/80" lang="ar" dir="rtl">
         رحلتك، أولويتنا
@@ -259,6 +275,7 @@ function IntroPanel() {
 }
 
 function ControlsPanel() {
+  const review = useContext(ReviewContext);
   return (
     <motion.aside
       initial={{ opacity: 0, x: 20 }}
@@ -267,8 +284,7 @@ function ControlsPanel() {
       className="no-scrollbar max-h-full w-full max-w-[340px] justify-self-start overflow-y-auto py-10"
     >
       <PanelHeading kicker="Bottom navigation · 3 concepts" title="Choose how travellers move.">
-        Switch live; the whole prototype updates instantly. Each concept opens the same six Cross
-        World services.
+        Each navigation style opens the same six Cross World services.
       </PanelHeading>
       <div className="mt-5">
         <NavConcepts />
@@ -298,9 +314,21 @@ function ControlsPanel() {
         </div>
         <ul className="mt-3 space-y-2 text-[12.5px] leading-relaxed text-fg-muted">
           <li>Tap the globe in the Orbit dock to launch services.</li>
-          <li>Book London → Cairo and pick seat 22A.</li>
-          <li>Message the concierge in English or Arabic.</li>
-          <li>Apply for an Egypt security approval and track it.</li>
+          <li>
+            {review
+              ? "Open Cairo & Giza and choose Plan this journey."
+              : "Book London → Cairo and pick seat 22A."}
+          </li>
+          <li>
+            {review
+              ? "Send a message from your travel request."
+              : "Message the concierge in English or Arabic."}
+          </li>
+          <li>
+            {review
+              ? "Ask the desk about an Egypt security approval."
+              : "Apply for an Egypt security approval and track it."}
+          </li>
         </ul>
       </section>
 
@@ -326,6 +354,7 @@ function ControlsPanel() {
 }
 
 function CompactToolbar() {
+  const review = useContext(ReviewContext);
   const [open, setOpen] = useState<"screens" | "nav" | null>(null);
   const { navStyle } = useAppState();
   const ref = useRef<HTMLDivElement>(null);
@@ -373,7 +402,9 @@ function CompactToolbar() {
         <LogoMark className="h-7 w-auto shrink-0" title="Cross World Travel and Tourism" />
         <div className="hidden min-w-0 md:block">
           <p className="truncate text-[14px] font-semibold">Cross World</p>
-          <p className="truncate text-[11.5px] text-fg-subtle">Mobile app prototype</p>
+          <p className="truncate text-[11.5px] text-fg-subtle">
+            {review ? "Traveller app" : "Mobile app prototype"}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -404,14 +435,22 @@ function CompactToolbar() {
 
 /** Presents the app in a device frame on larger screens and full-bleed on phones. */
 export function Showcase() {
+  return <Presentation render={(mode) => <AppShell mode={mode} />} />;
+}
+
+export function Presentation({
+  render,
+  review,
+  device = false,
+}: {
+  render: (mode: "frame" | "device") => ReactNode;
+  review?: Review;
+  device?: boolean;
+}) {
   const { width, height } = useViewport();
 
-  if (width < DEVICE) {
-    return (
-      <div className="h-dvh w-full overflow-hidden bg-ink-900">
-        <AppShell mode="device" />
-      </div>
-    );
+  if (device || width < DEVICE) {
+    return <div className="h-dvh w-full overflow-hidden bg-ink-900">{render("device")}</div>;
   }
 
   const wide = width >= WIDE;
@@ -422,25 +461,28 @@ export function Showcase() {
   );
 
   return (
-    <div data-prototype-stage className="relative h-dvh w-full overflow-hidden bg-ink-950 text-fg">
-      {wide ? (
-        <div className="relative mx-auto grid h-full max-w-[1500px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-14 px-14">
-          <IntroPanel />
-          <PhoneFrame scale={scale}>
-            <AppShell mode="frame" />
-          </PhoneFrame>
-          <ControlsPanel />
-        </div>
-      ) : (
-        <div className="relative flex h-full flex-col">
-          <CompactToolbar />
-          <div className="flex min-h-0 flex-1 items-start justify-center px-4 pb-6">
-            <PhoneFrame scale={scale}>
-              <AppShell mode="frame" />
-            </PhoneFrame>
+    <ReviewContext.Provider value={review ?? null}>
+      <div
+        dir="ltr"
+        lang="en"
+        data-prototype-stage
+        className="relative h-dvh w-full overflow-hidden bg-ink-950 text-fg"
+      >
+        {wide ? (
+          <div className="relative mx-auto grid h-full max-w-[1500px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-14 px-14">
+            <IntroPanel />
+            <PhoneFrame scale={scale}>{render("frame")}</PhoneFrame>
+            <ControlsPanel />
           </div>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div className="relative flex h-full flex-col">
+            <CompactToolbar />
+            <div className="flex min-h-0 flex-1 items-start justify-center px-4 pb-6">
+              <PhoneFrame scale={scale}>{render("frame")}</PhoneFrame>
+            </div>
+          </div>
+        )}
+      </div>
+    </ReviewContext.Provider>
   );
 }

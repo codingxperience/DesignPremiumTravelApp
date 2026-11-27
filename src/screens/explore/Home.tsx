@@ -1,6 +1,6 @@
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, BadgePercent, Bell, Headset, Search, ShieldCheck, SlidersHorizontal, Timer } from 'lucide-react'
+import { ArrowRight, BadgePercent, Bell, Headset, Search, ShieldCheck, SlidersHorizontal, Timer, UserRound } from 'lucide-react'
 import { LogoLockup } from '@/brand/Logo'
 import { getAirport } from '@/data/airports'
 import { SEED_NOTIFICATIONS, USER } from '@/data/demo'
@@ -95,8 +95,8 @@ function RecommendedRail() {
   )
 }
 
-function OfferBanner() {
-  const { t } = useI18n()
+function OfferBanner({ live }: { live: boolean }) {
+  const { t, lang } = useI18n()
   const { push } = useNav()
   return (
     <button
@@ -110,18 +110,18 @@ function OfferBanner() {
         className="absolute inset-0 bg-[linear-gradient(90deg,#164589_36%,rgba(22,69,137,0.55)_64%,rgba(22,69,137,0.05)_100%)] rtl:bg-[linear-gradient(270deg,#164589_36%,rgba(22,69,137,0.55)_64%,rgba(22,69,137,0.05)_100%)]"
       />
       <span aria-hidden className="heading absolute -bottom-5 end-3 text-[92px] leading-none text-white/[0.09]">
-        30%
+        {live ? 'EG' : '30%'}
       </span>
       <div className="relative flex min-h-[204px] max-w-[70%] flex-col justify-between gap-4 p-5">
         <Badge tone="solid" className="self-start">
-          {t('home.offer.kicker')}
+          {live ? t('service.egypt') : t('home.offer.kicker')}
         </Badge>
         <div>
-          <p className="heading text-[21px] leading-[1.12] text-white rtl:text-[19px] rtl:leading-[1.45]">{t('home.offer.title')}</p>
-          <p className="mt-2 text-[12.5px] leading-relaxed text-white/75">{t('home.offer.body')}</p>
+          <p className="heading text-[21px] leading-[1.12] text-white rtl:text-[19px] rtl:leading-[1.45]">{live ? (lang === 'ar' ? 'خطّط لرحلتك إلى مصر' : 'Plan your journey to Egypt') : t('home.offer.title')}</p>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-white/75">{live ? (lang === 'ar' ? 'تواصل مع مكتب السفر بشأن الموافقة الأمنية.' : 'Speak to the travel desk about security approval.') : t('home.offer.body')}</p>
         </div>
         <span className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-orange-200">
-          {t('home.offer.cta')}
+          {live ? t('common.seeAll') : t('home.offer.cta')}
           <ArrowRight className={cn('size-4', FLIP_RTL)} />
         </span>
       </div>
@@ -129,25 +129,29 @@ function OfferBanner() {
   )
 }
 
-function PopularRoutes() {
-  const { t, tp, L, money, duration } = useI18n()
+function PopularRoutes({ live }: { live: boolean }) {
+  const { t, tp, L, money, duration, lang } = useI18n()
   const { push } = useNav()
   const routes = useMemo(
     () =>
       POPULAR_ROUTES.map((code) => {
+        const destination = DESTINATIONS.find((d) => d.airport === code)!
+        if (live) return { code, destination, sample: null }
         const query: FlightQuery = { tripType: 'return', from: 'LHR', to: code, depart: fromToday(21), ret: fromToday(28), adults: 1, children: 0, infants: 0, cabin: 'economy' }
         const flights = searchFlights(query)
         const direct = flights.filter((f) => f.stops === 0)
         const fastest = Math.min(...(direct.length ? direct : flights).map((f) => f.durationMin))
         return {
           code,
-          destination: DESTINATIONS.find((d) => d.airport === code)!,
-          price: Math.min(...flights.map((f) => farePrice(f, 'light'))),
-          stops: direct.length ? 0 : Math.min(...flights.map((f) => f.stops)),
-          fastest,
+          destination,
+          sample: {
+            price: Math.min(...flights.map((f) => farePrice(f, 'light'))),
+            stops: direct.length ? 0 : Math.min(...flights.map((f) => f.stops)),
+            fastest,
+          },
         }
       }),
-    [],
+    [live],
   )
 
   return (
@@ -169,13 +173,13 @@ function PopularRoutes() {
               <span className="truncate">{L(getAirport(route.code).city)}</span>
             </span>
             <span className="mt-0.5 block text-[12.5px] text-fg-muted">
-              {route.stops === 0 ? t('common.direct') : tp('common.stops', route.stops)} · {duration(route.fastest)}
+              {route.sample ? <>{route.sample.stops === 0 ? t('common.direct') : tp('common.stops', route.sample.stops)} · {duration(route.sample.fastest)}</> : <>LHR · {route.code}</>}
             </span>
           </span>
-          <span className="text-end">
+          {route.sample ? <span className="text-end">
             <span className="block text-[11.5px] text-fg-subtle">{t('common.from')}</span>
-            <span className="block text-[16px] font-semibold tabular-nums">{money(route.price)}</span>
-          </span>
+            <span className="block text-[16px] font-semibold tabular-nums">{money(route.sample.price)}</span>
+          </span> : <span className="text-[12px] font-semibold text-orange-300">{lang === 'ar' ? 'طلب عرض' : 'Request quote'}</span>}
         </button>
       ))}
     </Card>
@@ -189,11 +193,18 @@ const WHY: { icon: typeof Timer; title: TKey; body: TKey }[] = [
   { icon: Headset, title: 'home.why.support', body: 'home.why.support.body' },
 ]
 
-export function HomeScreen() {
-  const { t, L } = useI18n()
+export function HomeScreen({ traveller }: { traveller?: string | null }) {
+  const live = traveller !== undefined
+  const { t, L, lang } = useI18n()
   const { push } = useNav()
   const { notificationsRead, notificationsEnabled } = useAppState()
-  const unread = notificationsEnabled && !notificationsRead && SEED_NOTIFICATIONS.some((n) => Date.now() - n.at < 86_400_000)
+  const unread = !live && notificationsEnabled && !notificationsRead && SEED_NOTIFICATIONS.some((n) => Date.now() - n.at < 86_400_000)
+  const benefits = live ? [
+    { icon: BadgePercent, title: L({ en: 'Personal quotes', ar: 'عروض مخصصة' }), body: L({ en: 'Review your price and inclusions before accepting.', ar: 'راجع السعر وما يشمله العرض قبل قبوله.' }) },
+    { icon: Timer, title: L({ en: 'Request updates', ar: 'تحديثات الطلب' }), body: L({ en: 'Follow each enquiry in your travel file.', ar: 'تابع كل طلب في ملف السفر الخاص بك.' }) },
+    { icon: ShieldCheck, title: L({ en: 'Your travel file', ar: 'ملف السفر' }), body: L({ en: 'Sign in to see your quotes and confirmations.', ar: 'سجّل الدخول لعرض العروض والتأكيدات.' }) },
+    { icon: Headset, title: L({ en: 'Talk to the desk', ar: 'تواصل مع المكتب' }), body: L({ en: 'Send a message about your itinerary.', ar: 'أرسل رسالة بخصوص برنامج رحلتك.' }) },
+  ] : WHY.map(({ icon, title, body }) => ({ icon, title: t(title), body: t(body) }))
   const [hour] = useState(() => new Date().getHours())
 
   return (
@@ -202,10 +213,10 @@ export function HomeScreen() {
 
       <header className="relative flex items-center justify-between px-5 pt-[calc(var(--sat)+10px)]">
         <div className="flex items-center gap-3">
-          <Avatar id={USER.avatar} alt={USER.name} className="size-11 ring-2 ring-white/10" />
+          {live ? <span className="grid size-11 place-items-center rounded-full bg-brand-blue/65 ring-2 ring-white/10"><UserRound className="size-5 text-white" /></span> : <Avatar id={USER.avatar} alt={USER.name} className="size-11 ring-2 ring-white/10" />}
           <div>
             <p className="text-[12.5px] text-fg-muted">{t(greetingKey(hour))}</p>
-            <p className="text-[16px] font-semibold">{L(USER.firstName)}</p>
+            <p className="text-[16px] font-semibold">{live ? (traveller?.split('@')[0] || (lang === 'ar' ? 'مسافر' : 'Traveller')) : L(USER.firstName)}</p>
           </div>
         </div>
         <IconButton label={unread ? t('home.notificationsNew') : t('home.notifications')} onClick={() => push({ name: 'notifications' })}>
@@ -232,7 +243,7 @@ export function HomeScreen() {
         </button>
       </div>
 
-      <section aria-label={t('home.services')} className="relative mt-5 grid grid-cols-3 gap-2.5 px-5">
+      <section aria-label={t('home.services')} className="@container relative mt-5 grid grid-cols-3 gap-2.5 px-5">
         {SERVICES.map((service) => {
           const Icon = service.icon
           return (
@@ -240,11 +251,11 @@ export function HomeScreen() {
               key={service.id}
               type="button"
               onClick={() => push(SERVICE_ROUTES[service.id])}
-              className="relative flex h-[60px] items-center gap-2.5 rounded-[18px] border border-white/[0.07] bg-white/[0.035] px-2.5 text-start transition-colors hover:bg-white/[0.06]"
+              className="relative flex h-[60px] items-center gap-1 rounded-[18px] border border-white/[0.07] bg-white/[0.035] px-1 text-start @min-[430px]:gap-2.5 @min-[430px]:px-2.5 @max-[335px]:flex-col @max-[335px]:justify-center @max-[335px]:gap-0.5 @max-[335px]:text-center transition-colors hover:bg-white/[0.06]"
             >
               <span
                 className={cn(
-                  'grid size-9 shrink-0 place-items-center rounded-[12px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]',
+                  'grid size-8 @min-[430px]:size-9 @max-[335px]:size-6 shrink-0 place-items-center rounded-[12px] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]',
                   service.offer ? 'bg-[linear-gradient(150deg,#ff8a4c,#d9531a)]' : 'bg-[linear-gradient(150deg,#2a62b4,#123566)]',
                 )}
               >
@@ -263,24 +274,24 @@ export function HomeScreen() {
       </section>
 
       <section className="mt-8 px-5">
-        <OfferBanner />
+        <OfferBanner live={live} />
       </section>
 
       <section className="mt-9">
-        <SectionHeader title={t('home.routes')} action={t('common.seeAll')} onAction={() => push({ name: 'flightSearch' })} />
-        <PopularRoutes />
+        <SectionHeader title={live ? L({ en: 'Explore routes', ar: 'استكشف المسارات' }) : t('home.routes')} action={t('common.seeAll')} onAction={() => push({ name: 'flightSearch' })} />
+        <PopularRoutes live={live} />
       </section>
 
       <section className="mt-9">
         <SectionHeader title={t('home.why')} />
         <div className="mt-4 grid grid-cols-2 gap-3 px-5">
-          {WHY.map(({ icon: Icon, title, body }) => (
+          {benefits.map(({ icon: Icon, title, body }) => (
             <Card key={title} className="p-4">
               <span className="grid size-10 place-items-center rounded-[13px] bg-brand-orange/12 text-orange-300">
                 <Icon className="size-5" />
               </span>
-              <p className="mt-3.5 text-[14.5px] font-semibold">{t(title)}</p>
-              <p className="mt-1 text-[12.5px] leading-snug text-fg-muted">{t(body)}</p>
+              <p className="mt-3.5 text-[14.5px] font-semibold">{title}</p>
+              <p className="mt-1 text-[12.5px] leading-snug text-fg-muted">{body}</p>
             </Card>
           ))}
         </div>

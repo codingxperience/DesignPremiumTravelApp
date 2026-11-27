@@ -1,9 +1,12 @@
 import { motion } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, Clock3, Compass, MapPin, Search, X } from 'lucide-react'
+import { SERVICES } from '@/navigation/items'
+import { SERVICE_ROUTES } from '@/state/routes'
+import { translate } from '@/lib/i18n'
 import { DESTINATIONS } from '@/data/destinations'
 import { cn } from '@/lib/cn'
-import { useI18n, useNav } from '@/state/store'
+import { useI18n, useLiveApp, useNav } from '@/state/store'
 import { IconButton } from '@/ui/Button'
 import { Chip } from '@/ui/Controls'
 import { Img } from '@/ui/Img'
@@ -15,6 +18,7 @@ const RECENT = ['cairo', 'makkah', 'istanbul']
 const POPULAR = ['zanzibar', 'dubai', 'marrakech', 'maldives', 'capetown', 'sharm']
 
 export function SearchScreen() {
+  const live = useLiveApp()
   const { t, L, money } = useI18n()
   const { pop, push, setTab } = useNav()
   const [query, setQuery] = useState('')
@@ -37,6 +41,7 @@ export function SearchScreen() {
     [normalized, query],
   )
 
+  const services = SERVICES.filter(service => [service.id, translate('en',service.label), translate('ar',service.label),translate('en',service.description),translate('ar',service.description),...(service.id==='egypt'?['Egypt security approval','الموافقة الأمنية لمصر']:[])].some(name => name.toLowerCase().includes(normalized)))
   const header = (
     <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-ink-900/85 px-4 pb-3 pt-[calc(var(--sat)+10px)] backdrop-blur-xl">
       <div className="flex items-center gap-2.5">
@@ -66,9 +71,10 @@ export function SearchScreen() {
 
   return (
     <Screen header={header} label={t('search.placeholder')}>
+      {services.length > 0 && <section className="px-5 pt-5"><h2 className="mb-3 text-sm font-semibold">{t('home.services')}</h2><div className="flex flex-wrap gap-2">{services.map(service => <Chip key={service.id} icon={<service.icon />} onClick={() => push(SERVICE_ROUTES[service.id])}>{t(service.label)}</Chip>)}</div></section>}
       {!normalized && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
-          <SectionHeader title={t('search.recent')} className="mt-6" />
+          <SectionHeader title={live ? t('nav.explore') : t('search.recent')} className="mt-6" />
           <div className="mt-3 flex flex-wrap gap-2 px-5">
             {RECENT.map((id) => {
               const destination = DESTINATIONS.find((d) => d.id === id)!
@@ -97,7 +103,7 @@ export function SearchScreen() {
                   <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent_35%,rgba(5,11,23,0.9))]" />
                   <span className="absolute inset-x-3 bottom-3">
                     <span className="block truncate text-[15px] font-semibold text-white">{L(destination.name)}</span>
-                    <span className="block truncate text-[12px] text-white/75">{t('common.fromPrice', { price: money(destination.priceFrom) })}</span>
+                    <span className="block truncate text-[12px] text-white/75">{live ? L(destination.region) : t('common.fromPrice', { price: money(destination.priceFrom) })}</span>
                   </span>
                 </motion.button>
               )
@@ -127,7 +133,7 @@ export function SearchScreen() {
                       <span className="truncate">{L(destination.region)}</span>
                     </span>
                   </span>
-                  <span className={cn('text-end text-[13px] font-semibold')}>{money(destination.priceFrom)}</span>
+                  <span className={cn('text-end text-[13px] font-semibold')}>{live ? '›' : money(destination.priceFrom)}</span>
                 </button>
               </li>
             ))}
@@ -135,7 +141,7 @@ export function SearchScreen() {
         </div>
       )}
 
-      {normalized && results.length === 0 && (
+      {normalized && results.length === 0 && services.length === 0 && (
         <EmptyState
           icon={<Compass />}
           title={t('search.empty.title')}

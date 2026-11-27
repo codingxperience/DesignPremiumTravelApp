@@ -6,7 +6,7 @@ import type { Amenity, Hotel } from '@/data/types'
 import { cn } from '@/lib/cn'
 import { daysBetween, fromToday } from '@/lib/dates'
 import type { TKey } from '@/lib/i18n'
-import { useI18n, useNav } from '@/state/store'
+import { useI18n, useLiveApp, useNav } from '@/state/store'
 import { Button } from '@/ui/Button'
 import { Stepper } from '@/ui/Controls'
 import { PickerField } from '@/ui/Field'
@@ -27,7 +27,8 @@ const AMENITIES: Record<Amenity, { icon: LucideIcon; label: TKey }> = {
 }
 
 function HotelCard({ hotel, index, onBook }: { hotel: Hotel; index: number; onBook: () => void }) {
-  const { t, L, money, num } = useI18n()
+  const live = useLiveApp()
+  const { t, L, money, num, lang } = useI18n()
   return (
     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: EASE_OUT, delay: index * 0.07 }}>
       <Card className="overflow-hidden">
@@ -35,16 +36,16 @@ function HotelCard({ hotel, index, onBook }: { hotel: Hotel; index: number; onBo
           <Img id={hotel.image} alt={L(hotel.name)} width={350} height={176} className="absolute inset-0 size-full" />
           <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,11,23,0.4),transparent_40%,rgba(5,11,23,0.55))]" />
           <div className="absolute inset-x-3 top-3 flex items-start justify-between">
-            <RatingPill rating={hotel.rating} />
+            {!live && <RatingPill rating={hotel.rating} />}
             {hotel.haramDistance && <Badge tone="glass">{t('hotels.fromHaram', { m: num(hotel.haramDistance) })}</Badge>}
           </div>
         </div>
         <div className="p-4">
-          <div className="flex items-center gap-0.5" role="img" aria-label={t('common.ratingAria', { rating: num(hotel.stars) })}>
+          {!live && <div className="flex items-center gap-0.5" role="img" aria-label={t('common.ratingAria', { rating: num(hotel.stars) })}>
             {Array.from({ length: hotel.stars }, (_, i) => (
               <Star key={i} className="size-3 fill-warning text-warning" aria-hidden />
             ))}
-          </div>
+          </div>}
           <h3 className="mt-1 text-[16.5px] font-semibold leading-snug">{L(hotel.name)}</h3>
           <p className="mt-1 flex items-center gap-1 text-[12.5px] text-fg-muted">
             <MapPin className="size-3.5 shrink-0" aria-hidden />
@@ -62,12 +63,12 @@ function HotelCard({ hotel, index, onBook }: { hotel: Hotel; index: number; onBo
             })}
           </ul>
           <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/[0.06] pt-4">
-            <p>
+            {live ? <span className="text-xs text-fg-muted">{lang === 'ar' ? 'السعر عند الطلب' : 'Quote on request'}</span> : <p>
               <span className="text-[20px] font-semibold tabular-nums">{money(hotel.pricePerNight)}</span>
               <span className="text-[12px] text-fg-muted"> / {t('hotels.night')}</span>
-            </p>
+            </p>}
             <Button size="sm" onClick={onBook} iconEnd={<ArrowRight className={cn('size-4', FLIP_RTL)} />}>
-              {t('hotels.book')}
+              {live ? (lang === 'ar' ? 'استفسر' : 'Enquire') : t('hotels.book')}
             </Button>
           </div>
         </div>
@@ -81,6 +82,7 @@ export function HotelsScreen({ cityId: initialCity }: { cityId?: string }) {
   const { push } = useNav()
   const [cityId, setCityId] = useState(initialCity ?? 'cairo')
   const [range, setRange] = useState({ start: fromToday(21), end: fromToday(26) })
+  const [rooms,setRooms] = useState(1)
   const [adults, setAdults] = useState(2)
   const [sheet, setSheet] = useState<'city' | 'dates' | 'guests' | null>(null)
   const [shown, setShown] = useState(cityId)
@@ -105,7 +107,7 @@ export function HotelsScreen({ cityId: initialCity }: { cityId?: string }) {
         <PickerField className="w-full" label={t('hotels.destination')} icon={<MapPin />} value={L(city.name)} onClick={() => setSheet('city')} />
         <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           <PickerField label={t('hotels.dates')} icon={<CalendarDays />} value={`${fmt(range.start)} – ${fmt(range.end)}`} onClick={() => setSheet('dates')} />
-          <PickerField label={t('hotels.guests')} icon={<Users />} value={tp('common.adults', adults)} onClick={() => setSheet('guests')} />
+          <PickerField label={t('hotels.guests')} icon={<Users />} value={tp('common.adults', adults)+' · '+tp('booking.rooms', rooms)} onClick={() => setSheet('guests')} />
         </div>
         <Button block size="md" className="mt-3" loading={loading} onClick={search}>
           {t('hotels.search')}
@@ -131,7 +133,7 @@ export function HotelsScreen({ cityId: initialCity }: { cityId?: string }) {
                 key={hotel.id}
                 hotel={hotel}
                 index={index}
-                onBook={() => push({ name: 'booking', item: { kind: 'hotel', hotelId: hotel.id, checkIn: range.start, checkOut: range.end, adults } })}
+                onBook={() => push({ name: 'booking', item: { kind: 'hotel', hotelId: hotel.id, checkIn: range.start, checkOut: range.end, adults, rooms } })}
               />
             ))}
           </motion.div>
@@ -175,10 +177,11 @@ export function HotelsScreen({ cityId: initialCity }: { cityId?: string }) {
         <div className="flex items-center justify-between py-3">
           <div>
             <p className="text-[15px] font-semibold">{t('booking.adults')}</p>
-            <p className="text-[12.5px] text-fg-subtle">{tp('booking.rooms', Math.ceil(adults / 2))}</p>
+            <p className="text-[12.5px] text-fg-subtle">{tp('booking.rooms', rooms)}</p>
           </div>
-          <Stepper label={t('booking.adults')} value={adults} min={1} max={6} onChange={setAdults} />
+          <Stepper label={t('booking.adults')} value={adults} min={1} max={9} onChange={n=>{setAdults(n);setRooms(r=>Math.min(r,n))}} />
         </div>
+        <div className="flex items-center justify-between py-3"><span>{L({en:'Rooms',ar:'الغرف'})}</span><Stepper label={L({en:'Rooms',ar:'الغرف'})} value={rooms} min={1} max={adults} onChange={setRooms} /></div>
       </Sheet>
     </Screen>
   )

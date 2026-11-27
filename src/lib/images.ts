@@ -60,10 +60,14 @@ export const PHOTOS = {
 
 export type PhotoId = (typeof PHOTOS)[keyof typeof PHOTOS]
 
+const localPhotos = import.meta.glob<string>('../assets/destinations/*.webp', { eager: true, query: '?url', import: 'default' })
+
 type PhotoOptions = { crop?: 'faces' | 'entropy' | 'edges'; quality?: number }
 
-/** Builds a sized, cropped Unsplash CDN URL. */
+/** Returns the bundled photo, or a sized CDN URL for showcase-only media. */
 export function photoUrl(id: string, width: number, height?: number, options: PhotoOptions = {}): string {
+  const asset = localPhotos['../assets/destinations/' + id + '.webp']
+  if (asset) return asset
   const params = new URLSearchParams({
     auto: 'format',
     fit: 'crop',

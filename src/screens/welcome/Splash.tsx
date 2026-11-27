@@ -11,7 +11,7 @@ const ASSET_ROOT = `${import.meta.env.BASE_URL}brand/splash/`;
  * replaced by the official Cross World lockup. Playback—not a separate
  * animation timer—controls the handoff so the aircraft reveal isn't cut short.
  */
-export function SplashScreen() {
+export function SplashScreen({ onComplete }: { onComplete?: () => void } = {}) {
   const dispatch = useDispatch();
   const { t } = useI18n();
   const reducedMotion = useReducedMotion();
@@ -24,8 +24,9 @@ export function SplashScreen() {
   const complete = useCallback(() => {
     if (completed.current) return;
     completed.current = true;
-    dispatch({ type: "SET_PHASE", phase: "onboarding" });
-  }, [dispatch]);
+    if (onComplete) onComplete();
+    else dispatch({ type: "SET_PHASE", phase: "onboarding" });
+  }, [dispatch,onComplete]);
 
   useEffect(() => {
     let cancelled = false;

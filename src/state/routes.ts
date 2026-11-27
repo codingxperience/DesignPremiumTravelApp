@@ -9,7 +9,7 @@ export type DestinationTab = 'overview' | 'packages' | 'essentials'
 
 export type BookableItem =
   | { kind: 'package'; packageId: string }
-  | { kind: 'hotel'; hotelId: string; checkIn: string; checkOut: string; adults: number }
+  | { kind: 'hotel'; hotelId: string; checkIn: string; checkOut: string; adults: number; rooms?: number }
 
 export type Route =
   | { name: 'search' }

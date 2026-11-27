@@ -60,7 +60,7 @@ export function OnboardingScreen() {
       <div className="absolute inset-x-0 top-[calc(var(--sat)+8px)] flex items-center justify-between px-6">
         <LogoMark className="h-7 w-auto" title={t('brand.full')} />
         {!last && (
-          <button type="button" onClick={() => toAuth('signin')} className="glass-dark h-9 rounded-full px-4 text-[13px] font-semibold text-white">
+          <button type="button" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'app' })} className="glass-dark h-9 rounded-full px-4 text-[13px] font-semibold text-white">
             {t('onb.skip')}
           </button>
         )}
