@@ -1,4 +1,8 @@
+from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlsplit
+
+
+SUPABASE_POOLER_CA = Path(__file__).with_name("certs") / "supabase-root-2021.crt"
 
 
 def selected_database_url(database_url, direct_url, *, migrations):
@@ -46,7 +50,9 @@ def database_config_from_url(database_url, *, sslmode, serverless):
         "sslmode": sslmode,
         "prepare_threshold": None,
     }
-    if serverless:
+    if parsed.hostname.endswith(".pooler.supabase.com"):
+        options["sslrootcert"] = str(SUPABASE_POOLER_CA)
+    elif serverless:
         options["sslrootcert"] = "/etc/ssl/certs/ca-certificates.crt"
 
     return {
