@@ -18,7 +18,11 @@ def digest(value):
 
 
 def remote(request):
-    value = request.META.get("REMOTE_ADDR", "")
+    value = (
+        request.META.get("HTTP_X_VERCEL_FORWARDED_FOR", "")
+        if settings.VERCEL
+        else request.META.get("REMOTE_ADDR", "")
+    )
     try:
         return str(ipaddress.ip_address(value))
     except ValueError:
@@ -91,7 +95,9 @@ class Boundaries:
             response["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
             response["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
             patch_vary_headers(response, ["Origin"])
-        if request.path.startswith(("/api/", "/mobile/", "/staff/")):
+        if request.path.startswith(
+            ("/api/", "/mobile/", "/staff/", "/internal/cron/")
+        ):
             response["Cache-Control"] = "no-store"
         response["Permissions-Policy"] = (
             "geolocation=(), camera=(), microphone=(), payment=()"

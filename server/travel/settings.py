@@ -5,8 +5,15 @@ from urllib.parse import urlsplit
 from django.core.exceptions import ImproperlyConfigured
 from django.core.management.utils import get_random_secret_key
 
+from .database import database_config_from_url, selected_database_url
+from .deployment import deployment_security_settings, validate_smtp_settings
+
 BASE = Path(__file__).resolve().parents[1]
 LOCAL = os.environ.get("TRAVEL_ENV") == "local"
+VERCEL = os.environ.get("VERCEL") == "1"
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
+if VERCEL and len(CRON_SECRET) < 32:
+    raise ImproperlyConfigured("Set CRON_SECRET to at least 32 random characters.")
 DEBUG = False
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if LOCAL and not SECRET_KEY:
@@ -35,10 +42,22 @@ if (
     or (not LOCAL and origin.scheme != "https")
 ):
     raise ImproperlyConfigured("Set PUBLIC_ORIGIN to the public HTTPS origin.")
-ALLOWED_HOSTS = [origin.hostname] + (["127.0.0.1", "localhost"] if LOCAL else [])
-CSRF_TRUSTED_ORIGINS = [PUBLIC_ORIGIN] + (
+try:
+    deployment_security = deployment_security_settings(
+        PUBLIC_ORIGIN,
+        os.environ.get("VERCEL_URL", ""),
+        vercel=VERCEL,
+    )
+except ValueError as error:
+    raise ImproperlyConfigured(str(error)) from error
+ALLOWED_HOSTS = deployment_security["ALLOWED_HOSTS"] + (
+    ["127.0.0.1", "localhost"] if LOCAL else []
+)
+CSRF_TRUSTED_ORIGINS = deployment_security["CSRF_TRUSTED_ORIGINS"] + (
     ["http://localhost:5173", "http://127.0.0.1:5173"] if LOCAL else []
 )
+if VERCEL:
+    SECURE_PROXY_SSL_HEADER = deployment_security["SECURE_PROXY_SSL_HEADER"]
 NATIVE_ORIGINS = {"capacitor://localhost", "https://localhost"}
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -80,7 +99,30 @@ if not LOCAL and os.environ.get("PGSSLMODE", "verify-full") != "verify-full":
     raise ImproperlyConfigured(
         "Production database connections require verify-full TLS."
     )
-if LOCAL and not os.environ.get("PGDATABASE"):
+MIGRATION_MODE = os.environ.get("TRAVEL_MIGRATIONS") == "1"
+try:
+    database_url = selected_database_url(
+        os.environ.get("DATABASE_URL", ""),
+        os.environ.get("DIRECT_URL", ""),
+        migrations=MIGRATION_MODE,
+    )
+except ValueError as error:
+    raise ImproperlyConfigured(str(error)) from error
+if database_url:
+    try:
+        DATABASES = {
+            "default": database_config_from_url(
+                database_url,
+                sslmode=os.environ.get("PGSSLMODE", "verify-full"),
+                serverless=VERCEL and not MIGRATION_MODE,
+            )
+        }
+    except ValueError as error:
+        raise ImproperlyConfigured(str(error)) from error
+    root_certificate = os.environ.get("PGSSLROOTCERT")
+    if root_certificate:
+        DATABASES["default"]["OPTIONS"]["sslrootcert"] = root_certificate
+elif LOCAL and not os.environ.get("PGDATABASE"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -88,7 +130,7 @@ if LOCAL and not os.environ.get("PGDATABASE"):
             "OPTIONS": {"transaction_mode": "IMMEDIATE", "timeout": 10},
         }
     }
-else:
+elif all(os.environ.get(name) for name in ("PGDATABASE", "PGUSER", "PGHOST", "PGPASSWORD")):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -102,6 +144,10 @@ else:
             "OPTIONS": {"sslmode": os.environ.get("PGSSLMODE", "verify-full")},
         }
     }
+else:
+    raise ImproperlyConfigured(
+        "Configure DATABASE_URL or the PGDATABASE, PGUSER, PGHOST, and PGPASSWORD settings."
+    )
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.Argon2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
@@ -155,8 +201,16 @@ EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 EMAIL_USE_TLS = True
 EMAIL_TIMEOUT = 8
 DEFAULT_FROM_EMAIL = os.environ.get("MAIL_FROM", "travel@localhost" if LOCAL else "")
-if not LOCAL and not (EMAIL_HOST and DEFAULT_FROM_EMAIL):
-    raise ImproperlyConfigured("Configure SMTP_HOST and MAIL_FROM for account email.")
+if not LOCAL:
+    try:
+        validate_smtp_settings(
+            EMAIL_HOST,
+            EMAIL_HOST_USER,
+            EMAIL_HOST_PASSWORD,
+            DEFAULT_FROM_EMAIL,
+        )
+    except ValueError as error:
+        raise ImproperlyConfigured(str(error)) from error
 
 SECURE_HSTS_INCLUDE_SUBDOMAINS = (
     not LOCAL and os.environ.get("HSTS_INCLUDE_SUBDOMAINS") == "1"

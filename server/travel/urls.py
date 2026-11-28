@@ -4,7 +4,7 @@ from django.http import FileResponse, HttpResponse
 from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
 
-from . import api, search, trips
+from . import api, cron, search, trips
 
 
 def shell(request):
@@ -39,6 +39,8 @@ endpoints = [
 web = [path(route, view) for route, view in endpoints]
 device = [path(route, csrf_exempt(view)) for route, view in endpoints]
 urlpatterns = [
+    path("internal/cron/mail", cron.mail),
+    path("internal/cron/prune", cron.prune),
     path("staff/", admin.site.urls),
     path("api/", include(web)),
     path("mobile/", include(device)),
