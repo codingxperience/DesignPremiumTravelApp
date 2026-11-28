@@ -1,7 +1,10 @@
 from urllib.parse import urlsplit
 
+from django.conf import settings
+from django.http import HttpResponseRedirect
 
-def deployment_security_settings(public_origin, deployment_url, *, vercel):
+
+def deployment_security_settings(public_origin, deployment_url, *, vercel, legacy_origin=""):
     canonical = urlsplit(public_origin)
     if (
         not canonical.hostname
@@ -14,6 +17,19 @@ def deployment_security_settings(public_origin, deployment_url, *, vercel):
         raise ValueError("The public origin must contain only an origin.")
 
     allowed_hosts = [canonical.hostname]
+    if legacy_origin:
+        legacy = urlsplit(legacy_origin)
+        if (
+            legacy.scheme != "https"
+            or not legacy.hostname
+            or legacy.netloc != legacy.hostname
+            or legacy.path
+            or legacy.query
+            or legacy.fragment
+        ):
+            raise ValueError("Set LEGACY_PUBLIC_ORIGIN to a single HTTPS origin.")
+        if legacy.hostname not in allowed_hosts:
+            allowed_hosts.append(legacy.hostname)
     trusted_origins = [public_origin]
     proxy_ssl_header = None
 
@@ -48,6 +64,15 @@ def deployment_security_settings(public_origin, deployment_url, *, vercel):
         "CSRF_TRUSTED_ORIGINS": trusted_origins,
         "SECURE_PROXY_SSL_HEADER": proxy_ssl_header,
     }
+
+
+def redirect_legacy_page(request):
+    old = settings.LEGACY_PUBLIC_ORIGIN
+    if old and old != settings.PUBLIC_ORIGIN and request.get_host() == urlsplit(old).netloc:
+        response = HttpResponseRedirect(settings.PUBLIC_ORIGIN + request.get_full_path())
+        response["Cache-Control"] = "no-store"
+        return response
+    return None
 
 
 def validate_smtp_settings(host, username, password, from_address):

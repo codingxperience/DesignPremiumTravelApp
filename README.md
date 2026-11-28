@@ -68,12 +68,13 @@ Public paths for your deployed origin are /privacy, /terms and /delete-account. 
 
 Connect the public GitHub repository to a Vercel project, select the `container` framework, and use `main` as its production branch. Configure these server-side environment variables for Production:
 
-The container marks itself as running on Vercel, and production accepts only the exact `PUBLIC_ORIGIN`. Keep this review deployment on Production. Preview deployments need their own explicit host and separate environment before they are shared; the app does not trust arbitrary `*.vercel.app` hosts.
+The container marks itself as running on Vercel. In production, `TRAVEL_PUBLIC_ORIGIN` sets the public app address. Deployments configured with `PUBLIC_ORIGIN` can continue to use that variable. An optional `LEGACY_PUBLIC_ORIGIN` keeps the mobile API available to existing builds and redirects visitors to the current address. Preview deployments use their own explicit host and environment.
 
 | Variable | Use |
 | --- | --- |
 | `DJANGO_SECRET_KEY` | Random key of at least 50 characters. |
-| `PUBLIC_ORIGIN` | Exact HTTPS production origin, such as the project's `vercel.app` URL. |
+| `TRAVEL_PUBLIC_ORIGIN` | Exact HTTPS production origin, such as `https://crossworldtravel.vercel.app`. This takes precedence over `PUBLIC_ORIGIN`. |
+| `LEGACY_PUBLIC_ORIGIN` | Optional previous HTTPS origin used by installed clients. |
 | `DATABASE_URL` | Supabase shared transaction-pool URL on port 6543 with `pgbouncer=true`. The app forces verified TLS and disables prepared statements. |
 | `CRON_SECRET` | Random secret of at least 32 characters for Vercel's scheduled requests. |
 | `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image. Email and password testers use an invite code. |
@@ -89,7 +90,7 @@ For a one-off schema migration, temporarily add the Supabase session-pool URL as
 
 Invite-only mode keeps guest search and password sign-in open. With the review environment variables set, run `python server/manage.py issue_invite tester@example.com` and give the tester the code privately. Select **Create an account**, enter the invitation email and code, and choose a password. The code expires after 24 hours or its first successful use. Issuing a new code replaces the previous one for that email. Existing testers can sign in with their current password.
 
-To enable Google sign-up and sign-in during the beta, create an OAuth client of type **Web application** in Google Cloud. Add the production origin followed by `/auth/google/callback` to **Authorized redirect URIs** (for example, `https://design-premium-travel-app.vercel.app/auth/google/callback`). Choose an External audience so client accounts outside your organisation can sign in. The app only requests the basic identity scopes `openid`, `email` and `profile`. Apply the Django migrations and redeploy after adding the Google credentials.
+To enable Google sign-up and sign-in during the beta, create an OAuth client of type **Web application** in Google Cloud. Add the production origin followed by `/auth/google/callback` to **Authorized redirect URIs** (for example, `https://crossworldtravel.vercel.app/auth/google/callback`). Choose an External audience so client accounts outside your organisation can sign in. The app only requests the basic identity scopes `openid`, `email` and `profile`. Apply the Django migrations and redeploy after adding the Google credentials.
 
 Google can create a traveller account with the user's verified email and name while `TRAVEL_INVITE_ONLY=1`. Email and password testers can still use their existing accounts. Installed clients must include the Google callback handler. Rebuild them after changing the bundle identifier or public origin.
 

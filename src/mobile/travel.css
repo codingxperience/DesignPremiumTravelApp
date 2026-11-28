@@ -1,5 +1,4 @@
-.travel-device,
-.travel-framed {
+.travel-device {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -12,10 +11,6 @@
   height: 100dvh;
   --sat: max(env(safe-area-inset-top), 12px);
   --sab: max(env(safe-area-inset-bottom), 10px);
-}
-.travel-framed {
-  --sat: 50px;
-  --sab: 26px;
 }
 .desk-scroll {
   position: absolute;

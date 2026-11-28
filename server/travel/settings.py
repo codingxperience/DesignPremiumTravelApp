@@ -32,9 +32,11 @@ if len(SECRET_KEY) < 50:
     raise ImproperlyConfigured(
         "Set DJANGO_SECRET_KEY to a random secret of at least 50 characters."
     )
-PUBLIC_ORIGIN = os.environ.get(
-    "PUBLIC_ORIGIN", "http://localhost:8000" if LOCAL else ""
-).rstrip("/")
+PUBLIC_ORIGIN = (
+    os.environ.get("TRAVEL_PUBLIC_ORIGIN")
+    or os.environ.get("PUBLIC_ORIGIN", "http://localhost:8000" if LOCAL else "")
+).strip().rstrip("/")
+LEGACY_PUBLIC_ORIGIN = os.environ.get("LEGACY_PUBLIC_ORIGIN", "").strip().rstrip("/")
 origin = urlsplit(PUBLIC_ORIGIN)
 if (
     not origin.hostname
@@ -51,6 +53,7 @@ try:
         PUBLIC_ORIGIN,
         os.environ.get("VERCEL_URL", ""),
         vercel=VERCEL,
+        legacy_origin=LEGACY_PUBLIC_ORIGIN,
     )
 except ValueError as error:
     raise ImproperlyConfigured(str(error)) from error

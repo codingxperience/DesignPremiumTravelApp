@@ -21,6 +21,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.id_token import verify_oauth2_token
 
 from .api import Invalid, User, email_address, endpoint, fields, slow_error, start_session
+from .deployment import redirect_legacy_page
 from .models import GoogleDeviceGrant, GoogleIdentity
 from .security import allowance, digest, remote
 
@@ -58,6 +59,9 @@ def callback_url():
 
 @require_GET
 def begin(request):
+    legacy = redirect_legacy_page(request)
+    if legacy:
+        return legacy
     if not settings.GOOGLE_SIGN_IN or not allowance("google-start", remote(request), 15, 600):
         return failed()
     challenge = request.GET.get("device", "")
