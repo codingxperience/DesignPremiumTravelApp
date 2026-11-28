@@ -15,6 +15,9 @@ def options():
         "threads": int(os.environ.get("WEB_THREADS", "4")),
         "max_request_body_size": 3150000,
     }
+    if os.environ.get("VERCEL") == "1":
+        # Vercel terminates HTTPS before forwarding requests to the container.
+        settings["url_scheme"] = "https"
     proxy = os.environ.get("TRUSTED_PROXY_IP")
     if proxy:
         settings.update(
