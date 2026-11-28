@@ -1,6 +1,6 @@
 {
   "appId": "com.crossworldtravelagency.travel",
-  "appName": "Cross World Travel",
+  "appName": "Cross World",
   "webDir": "dist",
   "server": {
     "cleartext": false,

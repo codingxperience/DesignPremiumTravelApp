@@ -1,17 +1,25 @@
 from django.conf import settings
 from django.contrib import admin
-from django.http import FileResponse, HttpResponse
+from django.http import HttpResponse
 from django.urls import include, path
+from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
 
 from . import api, cron, google_sign_in, search, trips
+from .deployment import redirect_legacy_page
 
 
 def shell(request):
+    redirect = redirect_legacy_page(request)
+    if redirect:
+        return redirect
     index = settings.DIST / "index.html"
     if not index.is_file():
         return HttpResponse("Build the mobile client to serve this page.", status=503)
-    response = FileResponse(index.open("rb"), content_type="text/html; charset=utf-8")
+    html = index.read_text(encoding="utf-8").replace(
+        "__TRAVEL_PUBLIC_ORIGIN__", escape(settings.PUBLIC_ORIGIN)
+    ).replace("__TRAVEL_PAGE_URL__", escape(settings.PUBLIC_ORIGIN + request.path))
+    response = HttpResponse(html, content_type="text/html; charset=utf-8")
     response["Cache-Control"] = "no-store"
     return response
 

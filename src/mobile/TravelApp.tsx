@@ -1,7 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Capacitor } from "@capacitor/core";
-import { Presentation } from "@/shell/Showcase";
-import type { ScreenId } from "@/state/scenarios";
 import { MotionConfig } from "motion/react";
 import { ChevronLeft, TicketsPlane } from "lucide-react";
 import { LogoMark } from "@/brand/Logo";
@@ -31,7 +28,6 @@ import { Screen, ScreenHeader } from "@/ui/Screen";
 import { ListRow, Card } from "@/ui/Misc";
 import { IconButton } from "@/ui/Button";
 import { ToastHost } from "@/ui/Toast";
-import { StatusBar } from "@/shell/PhoneFrame";
 import { Account } from "./Account";
 import { TravelSupport } from "./TravelSupport";
 import { Policy } from "./Policy";
@@ -66,27 +62,6 @@ function back() {
   if (history.state?.travelBack) history.back();
   else move("home");
 }
-
-const reviewRoutes: Partial<Record<ScreenId, string>> = {
-  splash: "splash",
-  onboarding: "onboarding",
-  signup: "signup",
-  home: "home",
-  signin: "account",
-  search: "search",
-  destination: "destination/cairo",
-  notifications: "notifications",
-  flightSearch: "flights",
-  hotels: "hotels",
-  holidays: "holidays",
-  umrah: "umrah",
-  visa: "visa",
-  egypt: "egypt",
-  trips: "requests",
-  support: "support",
-  profile: "profile",
-  saved: "saved",
-};
 
 export function TravelApp() {
   return (
@@ -498,52 +473,27 @@ function Traveller() {
   return (
     <Locale.Provider value={ar}>
       <NavigationContext.Provider value={navigation}>
-        <Presentation
-          device={Capacitor.isNativePlatform()}
-          review={{
-            routes: reviewRoutes,
-            current:
-              Object.keys(reviewRoutes).find((id) => reviewRoutes[id as ScreenId] === page) ?? kind,
-            open: (id) => {
-              const target = reviewRoutes[id];
-              if (target) move(target);
-            },
-          }}
-          render={(mode) => (
-            <div
-              lang={lang}
-              dir={ar ? "rtl" : "ltr"}
-              className={mode === "device" ? "travel-device" : "travel-framed"}
-            >
-              <OverlayRoot>
-                <main key={view} className="absolute inset-0">
-                  {launch && page === "home" ? (
-                    <SplashScreen onComplete={finishLaunch} />
-                  ) : (
-                    contents()
-                  )}
-                </main>
-                <BottomNav
-                  visible={
-                    !launch &&
-                    ["home", "requests", "profile", "support"].includes(page) &&
-                    (!restricted || Boolean(email))
-                  }
-                />
-                <ToastHost />
-              </OverlayRoot>
-              {mode === "frame" && (
-                <>
-                  <StatusBar />
-                  <span
-                    aria-hidden
-                    className="pointer-events-none absolute bottom-2 left-1/2 z-[95] h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-white/85"
-                  />
-                </>
-              )}
-            </div>
-          )}
-        />
+        <div className="h-dvh w-full overflow-hidden bg-ink-950">
+          <div
+            lang={lang}
+            dir={ar ? "rtl" : "ltr"}
+            className="travel-device mx-auto max-w-[30rem] sm:border-x sm:border-white/10"
+          >
+            <OverlayRoot>
+              <main key={view} className="absolute inset-0">
+                {launch && page === "home" ? <SplashScreen onComplete={finishLaunch} /> : contents()}
+              </main>
+              <BottomNav
+                visible={
+                  !launch &&
+                  ["home", "requests", "profile", "support"].includes(page) &&
+                  (!restricted || Boolean(email))
+                }
+              />
+              <ToastHost />
+            </OverlayRoot>
+          </div>
+        </div>
       </NavigationContext.Provider>
     </Locale.Provider>
   );

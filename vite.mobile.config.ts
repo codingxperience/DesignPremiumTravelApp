@@ -18,8 +18,10 @@ export default defineConfig(({ mode }) => {
         apply: "build",
         generateBundle() {
           for (const fileName of [
+            "favicon.ico",
             "favicon.png",
             "apple-touch-icon.png",
+            "brand/cross-world-share-card-v1.png",
             "brand/giza.jpg",
             "brand/splash/cross-world-intro.mp4",
             "brand/splash/cross-world-still.webp",

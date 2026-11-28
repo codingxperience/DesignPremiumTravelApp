@@ -132,6 +132,27 @@ class GoogleSignInTests(TestCase):
         self.assertFalse(GoogleIdentity.objects.exists())
         self.assertFalse(DeviceSession.objects.exists())
 
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "previous.example"],
+        LEGACY_PUBLIC_ORIGIN="https://previous.example",
+    )
+    def test_previous_address_redirects_web_and_google_but_keeps_device_api(self):
+        browser = self.client.get("/?screen=home", HTTP_HOST="previous.example")
+        self.assertEqual(browser.headers["Location"], GOOGLE_ORIGIN + "/?screen=home")
+
+        challenge = challenge_for(secrets.token_urlsafe(32))
+        oauth = self.client.get("/auth/google/start", {"device": challenge}, HTTP_HOST="previous.example")
+        self.assertEqual(
+            oauth.headers["Location"],
+            GOOGLE_ORIGIN + "/auth/google/start?device=" + challenge,
+        )
+        self.assertNotIn("google_attempt", self.client.session)
+
+        device = Client(HTTP_ORIGIN="https://localhost")
+        session = device.get("/mobile/session", HTTP_HOST="previous.example")
+        self.assertEqual(session.status_code, 200)
+        self.assertEqual(session.headers["Access-Control-Allow-Origin"], "https://localhost")
+
     @override_settings(GOOGLE_SIGN_IN=False)
     def test_provider_is_unavailable_until_configured(self):
         self.assertFalse(self.client.get("/api/session").json()["googleSignIn"])
