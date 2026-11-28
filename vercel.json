@@ -4,12 +4,8 @@
   "regions": ["fra1"],
   "crons": [
     {
-      "path": "/internal/cron/mail",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/internal/cron/prune",
-      "schedule": "0 * * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }

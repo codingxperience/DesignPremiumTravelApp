@@ -90,6 +90,9 @@ class Command(BaseCommand):
         if not 1 <= limit <= 100:
             raise CommandError("The email batch limit must be between 1 and 100.")
 
+        if settings.INVITE_ONLY:
+            return
+
         for _ in range(limit):
             job = claim()
             if not job:

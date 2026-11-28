@@ -12,8 +12,17 @@ from django.test import Client, RequestFactory, SimpleTestCase, TestCase, overri
 from django.utils import timezone
 from PIL import Image
 
-from .models import Attachment, DeviceSession, EmailLink, Message, Quote, Trip, Window
 from .deployment import deployment_security_settings, validate_smtp_settings
+from .models import (
+    Attachment,
+    DeviceSession,
+    EmailDelivery,
+    EmailLink,
+    Message,
+    Quote,
+    Trip,
+    Window,
+)
 from .security import digest, remote
 
 
@@ -234,6 +243,44 @@ class TravelTests(TestCase):
             200,
         )
         self.assertEqual(c.get("/api/trips").status_code, 401)
+
+    @override_settings(INVITE_ONLY=True)
+    def test_invite_only_allows_password_login_and_blocks_email_links(self):
+        existing_token = secrets.token_urlsafe(24)
+        EmailLink.objects.create(
+            digest=digest(existing_token),
+            email=self.user.email,
+            purpose="reset",
+            expires=timezone.now() + timedelta(minutes=30),
+        )
+        for prefix in ("/api", "/mobile"):
+            with self.subTest(prefix=prefix):
+                client = Client()
+                self.assertTrue(client.get(f"{prefix}/session").json()["inviteOnly"])
+                for purpose in ("register", "reset"):
+                    response = self.post(
+                        f"{prefix}/email",
+                        {"purpose": purpose, "email": self.user.email},
+                        client,
+                    )
+                    self.assertEqual(response.status_code, 503)
+                self.assertEqual(
+                    self.post(
+                        f"{prefix}/password",
+                        {"token": existing_token, "password": secrets.token_urlsafe(24)},
+                        client,
+                    ).status_code,
+                    503,
+                )
+                self.assertEqual(
+                    self.post(
+                        f"{prefix}/login",
+                        {"email": self.user.email, "password": self.secret},
+                        client,
+                    ).status_code,
+                    200,
+                )
+        self.assertFalse(EmailDelivery.objects.exists())
 
     def test_device_channel_ignores_browser_credentials(self):
         self.assertEqual(self.client.get("/mobile/trips").status_code, 403)
