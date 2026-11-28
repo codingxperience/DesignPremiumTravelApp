@@ -16,7 +16,7 @@
     "@capacitor/core": "^8.6.2",
     "@capacitor/ios": "^8.6.2",
     "libphonenumber-js": "1.13.17",
-    "lucide-react": "^1.72.0",
+    "lucide-react": "^1.79.0",
     "motion": "^14.14.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
