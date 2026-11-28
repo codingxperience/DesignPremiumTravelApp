@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Presentation } from "@/shell/Showcase";
 import type { ScreenId } from "@/state/scenarios";
@@ -36,7 +36,8 @@ import { Account } from "./Account";
 import { TravelSupport } from "./TravelSupport";
 import { Policy } from "./Policy";
 import { RequestDetail, RequestForm, RequestList } from "./Requests";
-import { loadSession, type Service } from "./api";
+import { loadSession, remember, type Service, type Session } from "./api";
+import { googleReturnView, listenForGoogle, restoreGoogleReturn } from "./google";
 import { Locale } from "./ui";
 
 const tabs: Record<Tab, string> = {
@@ -45,6 +46,7 @@ const tabs: Record<Tab, string> = {
   support: "support",
   profile: "profile",
 };
+restoreGoogleReturn();
 const initialToken = new URLSearchParams(location.hash.slice(1)).get("setup") || "";
 if (initialToken) history.replaceState(null, "", "#account");
 
@@ -110,6 +112,8 @@ function Traveller() {
     [email, setEmail] = useState<string | null>(null),
     [fullName, setFullName] = useState<string | null>(null),
     [inviteOnly, setInviteOnly] = useState(false),
+    [googleSignIn, setGoogleSignIn] = useState(false),
+    [passwordless, setPasswordless] = useState(false),
     [loaded, setLoaded] = useState(false);
   const [token, setToken] = useState(initialToken),
     [connection, setConnection] = useState(""),
@@ -118,6 +122,7 @@ function Traveller() {
     ar = lang === "ar",
     t = (en: string, arabic: string) => (ar ? arabic : en);
   const dispatch = useDispatch();
+  const sessionRevision = useRef(0);
   const params = new URLSearchParams(view.split("?")[1] || "");
   const page = view.split("?")[0];
   const [kind, arg] = page.split("/");
@@ -143,14 +148,19 @@ function Traveller() {
   }
   useEffect(() => {
     let active = true;
+    const revision = sessionRevision.current;
     setConnection("");
     loadSession()
       .then((s) => {
         if (active) {
-          setEmail(s.email);
-          setFullName(s.fullName ?? null);
           setInviteOnly(s.inviteOnly === true);
-          if (s.inviteOnly) setToken("");
+          setGoogleSignIn(s.googleSignIn === true);
+          if (revision === sessionRevision.current) {
+            setEmail(s.email);
+            setFullName(s.fullName ?? null);
+            setPasswordless(s.passwordless === true);
+            if (s.inviteOnly) setToken("");
+          }
         }
       })
       .catch((e) => {
@@ -164,6 +174,23 @@ function Traveller() {
     };
   }, [retry]);
 
+  const applySession = useCallback((session: Session) => {
+    sessionRevision.current += 1;
+    setEmail(session.email);
+    setFullName(session.fullName ?? null);
+    setPasswordless(session.passwordless === true);
+    setToken("");
+  }, []);
+
+  useEffect(() => listenForGoogle((session) => {
+    remember(session);
+    applySession(session);
+    const destination = googleReturnView(location.hash).slice(1);
+    move(destination);
+    setLaunch(false);
+    setRetry((attempt) => attempt + 1);
+  }, () => move("account?google=failed")), [applySession]);
+
   useEffect(() => {
     const next = () => {
       const incoming = new URLSearchParams(location.hash.slice(1)).get("setup");
@@ -176,8 +203,10 @@ function Traveller() {
       dispatch({ type: "SET_SERVICES_OPEN", open: false });
     };
     const expired = () => {
+      sessionRevision.current += 1;
       setEmail(null);
       setFullName(null);
+      setPasswordless(false);
       setToken("");
     };
     window.addEventListener("hashchange", next);
@@ -316,6 +345,9 @@ function Traveller() {
           email={!inviteOnly && token ? null : email}
           token={inviteOnly ? "" : token}
           inviteOnly={inviteOnly}
+          googleSignIn={googleSignIn}
+          googleFailed={params.get("google") === "failed"}
+          passwordless={passwordless}
           deleting={page === "delete"}
           startWithSignup={page === "signup"}
           onBack={() => {
@@ -325,11 +357,7 @@ function Traveller() {
           }}
           toggleLang={toggleLang}
           remove={() => move("delete")}
-          onSession={(value) => {
-            setEmail(value.email);
-            setFullName(value.fullName ?? null);
-            setToken("");
-          }}
+          onSession={applySession}
           onDone={() => {
             if (["account", "signup", "delete"].includes(page)) move("home");
           }}

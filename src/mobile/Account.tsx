@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { KeyRound, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { GoogleIcon } from "@/ui/Icons";
+import { startGoogle } from "./google";
 import { CONTACT } from "@/data/demo";
 import { AuthLayout, OrDivider, PasswordToggle, SocialButtons } from "@/screens/welcome/Auth";
 import { useI18n } from "@/state/store";
@@ -23,6 +25,9 @@ export function Account({
   onSession,
   token,
   inviteOnly,
+  googleSignIn,
+  googleFailed,
+  passwordless,
   deleting,
   onDone,
   onBack,
@@ -34,6 +39,9 @@ export function Account({
   onSession: (session: Session) => void;
   token: string;
   inviteOnly: boolean;
+  googleSignIn: boolean;
+  googleFailed: boolean;
+  passwordless: boolean;
   deleting: boolean;
   onDone: () => void;
   onBack: () => void;
@@ -48,7 +56,12 @@ export function Account({
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const [error, setError] = useState("");
+  const googleError = t(
+    "Google sign-in didn’t finish. Try again.",
+    "لم يكتمل تسجيل الدخول عبر Google. حاول مجدداً.",
+  );
+  const [error, setError] = useState(googleFailed ? googleError : "");
+  const [googleBusy, setGoogleBusy] = useState(false);
   const registering = !email && mode === "register" && inviteOnly;
   const passwordSetup = registering || mode === "setup";
   const origin = import.meta.env.VITE_TRAVEL_ORIGIN || window.location.origin;
@@ -59,6 +72,19 @@ export function Account({
     setError("");
     setNotice("");
     setMode(next);
+  }
+
+  async function continueWithGoogle() {
+    if (busy || googleBusy) return;
+    setError("");
+    setGoogleBusy(true);
+    try {
+      await startGoogle();
+    } catch {
+      setError(googleError);
+    } finally {
+      setGoogleBusy(false);
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -85,7 +111,10 @@ export function Account({
     setBusy(true);
     try {
       if (email) {
-        await api(deleting ? "delete" : "logout", deleting ? { password } : {});
+        await api(
+          deleting ? "delete" : "logout",
+          deleting ? (passwordless ? { confirm: true } : { password }) : {},
+        );
         clearSession();
         onSession({ email: null });
         onDone();
@@ -121,7 +150,12 @@ export function Account({
         );
       }
     } catch (failure) {
-      if (!email && mode === "login" && failure instanceof ApiError && failure.status === 401) {
+      if (email && deleting && passwordless && failure instanceof ApiError && failure.status === 403) {
+        setError(t(
+          "Sign out, then sign in with Google and return here to delete your account.",
+          "سجّل الخروج ثم ادخل عبر Google وارجع إلى هنا لحذف حسابك.",
+        ));
+      } else if (!email && mode === "login" && failure instanceof ApiError && failure.status === 401) {
         setError(
           t(
             "Sign-in failed. Check your email and password. If you’re new, choose Create account below.",
@@ -154,10 +188,15 @@ export function Account({
 
   const subtitle = email
     ? deleting
-      ? t(
-          "Confirm your password to permanently remove your account and travel data.",
-          "أكّد كلمة مرورك لإزالة حسابك وبيانات سفرك نهائياً.",
-        )
+      ? passwordless
+        ? t(
+            "Delete your account and travel data permanently.",
+            "سيُحذف حسابك وبيانات سفرك نهائياً.",
+          )
+        : t(
+            "Confirm your password to permanently remove your account and travel data.",
+            "أكّد كلمة مرورك لإزالة حسابك وبيانات سفرك نهائياً.",
+          )
       : email
     : mode === "login"
       ? copy("auth.signinSub")
@@ -187,6 +226,9 @@ export function Account({
           ? t("Save password", "حفظ كلمة المرور")
           : t("Send email link", "إرسال الرابط");
 
+  const googleSignup = registering && googleSignIn;
+  const googleAction = googleSignIn ? () => void continueWithGoogle() : undefined;
+
   return (
     <AuthLayout
       title={title}
@@ -202,6 +244,29 @@ export function Account({
         </button>
       }
     >
+      {googleSignup && (
+        <div className="mb-7 space-y-3">
+          <Button type="button" block variant="secondary" loading={googleBusy}
+            icon={<GoogleIcon className="size-5" />} onClick={googleAction}>
+            {t("Continue with Google", "المتابعة باستخدام Google")}
+          </Button>
+          <p className="text-center text-[13px] text-fg-muted">
+            {t("Use Google to create your account without an invitation.", "أنشئ حسابك باستخدام Google من دون دعوة.")}
+          </p>
+          <p className="text-center text-xs text-fg-subtle">
+            {t("By continuing, you agree to the", "بالمتابعة، فإنك توافق على")}{" "}
+            <a href={origin + "/terms"} target="_blank" rel="noreferrer" className="text-orange-300">
+              {t("Terms of Service", "شروط الخدمة")}
+            </a>{" "}
+            {t("and", "و")}{" "}
+            <a href={origin + "/privacy"} target="_blank" rel="noreferrer" className="text-orange-300">
+              {t("Privacy Policy", "سياسة الخصوصية")}
+            </a>
+            .
+          </p>
+          <OrDivider />
+        </div>
+      )}
       <form key={String(Boolean(email)) + mode} onSubmit={submit} className="space-y-4">
         {registering && (
           <TextField
@@ -246,7 +311,7 @@ export function Account({
             ltr
           />
         )}
-        {(email ? deleting : mode === "login" || passwordSetup) && (
+        {(email ? deleting && !passwordless : mode === "login" || passwordSetup) && (
           <TextField
             label={copy("auth.password")}
             icon={<LockKeyhole />}
@@ -317,19 +382,38 @@ export function Account({
           variant={email && deleting ? "danger" : "primary"}
           className={registering ? "!mt-6" : undefined}
         >
-          {mainButton}
+          {googleSignup ? t("Continue with an invitation", "المتابعة باستخدام دعوة") : mainButton}
         </Button>
       </form>
       {!email && (mode === "login" || mode === "register") && (
         <>
-          <OrDivider />
-          <SocialButtons unavailable />
-          <p className="mt-2 text-center text-xs text-fg-subtle">
-            {t(
-              "Apple and Google sign-in are unavailable during testing.",
-              "تسجيل الدخول عبر Apple وGoogle غير متاح أثناء الاختبار.",
-            )}
-          </p>
+          {!googleSignup && (
+            <>
+              <OrDivider />
+              <SocialButtons unavailable onGoogle={googleAction} googleBusy={googleBusy} />
+              <p className="mt-2 text-center text-xs text-fg-subtle">
+                {googleSignIn
+                  ? t("You can also create an account with Google.", "يمكنك أيضاً إنشاء حساب عبر Google.")
+                  : t(
+                      "Apple and Google sign-in are unavailable during testing.",
+                      "تسجيل الدخول عبر Apple وGoogle غير متاح أثناء الاختبار.",
+                    )}
+              </p>
+              {googleSignIn && (
+                <p className="mt-2 text-center text-xs text-fg-subtle">
+                  {t("By continuing with Google, you agree to the", "بالمتابعة باستخدام Google، فإنك توافق على")}{" "}
+                  <a href={origin + "/terms"} target="_blank" rel="noreferrer" className="text-orange-300">
+                    {t("Terms of Service", "شروط الخدمة")}
+                  </a>{" "}
+                  {t("and", "و")}{" "}
+                  <a href={origin + "/privacy"} target="_blank" rel="noreferrer" className="text-orange-300">
+                    {t("Privacy Policy", "سياسة الخصوصية")}
+                  </a>
+                  .
+                </p>
+              )}
+            </>
+          )}
           <p className="mt-9 text-center text-[14px] text-fg-muted">
             {copy(mode === "login" ? "auth.noAccount" : "auth.haveAccount")}{" "}
             <button

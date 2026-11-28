@@ -11,6 +11,8 @@ export type Session = {
   csrf?: string;
   token?: string;
   inviteOnly?: boolean;
+  googleSignIn?: boolean;
+  passwordless?: boolean;
 };
 export type Service = "flight" | "hotel" | "holiday" | "visa" | "umrah" | "egypt" | "approval";
 export type Trip = {

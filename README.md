@@ -76,7 +76,9 @@ The container marks itself as running on Vercel, and production accepts only the
 | `PUBLIC_ORIGIN` | Exact HTTPS production origin, such as the project's `vercel.app` URL. |
 | `DATABASE_URL` | Supabase shared transaction-pool URL on port 6543 with `pgbouncer=true`. The app forces verified TLS and disables prepared statements. |
 | `CRON_SECRET` | Random secret of at least 32 characters for Vercel's scheduled requests. |
-| `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image. Testers create accounts with an invite code and can sign in without an email sender. |
+| `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image. Email and password testers use an invite code. |
+| `GOOGLE_OAUTH_CLIENT_ID` | Optional Google Web application client ID. Enables Google sign-in when both Google values are set. |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | Secret for the same Google OAuth client. Set only in the backend environment. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Verified transactional email sender over STARTTLS when public account emails are enabled. |
 
 Keep `DATABASE_URL`, SMTP credentials, `DJANGO_SECRET_KEY`, and `CRON_SECRET` in Vercel's encrypted environment settings. Never expose them through `VITE_*` variables. Do not add the Supabase service-role key to this app; Django uses PostgreSQL directly and enforces the existing per-user access rules.
@@ -87,7 +89,11 @@ For a one-off schema migration, temporarily add the Supabase session-pool URL as
 
 Invite-only mode keeps guest search and password sign-in open. With the review environment variables set, run `python server/manage.py issue_invite tester@example.com` and give the tester the code privately. Select **Create an account**, enter the invitation email and code, and choose a password. The code expires after 24 hours or its first successful use. Issuing a new code replaces the previous one for that email. Existing testers can sign in with their current password.
 
-Before opening public signup, configure the verified email sender, add the `/internal/cron/mail` job with schedule `* * * * *` to `vercel.json`, and set `TRAVEL_INVITE_ONLY` to `0` before redeploying. Verify account setup and password reset email delivery before sharing the public launch link.
+To enable Google sign-up and sign-in during the beta, create an OAuth client of type **Web application** in Google Cloud. Add the production origin followed by `/auth/google/callback` to **Authorized redirect URIs** (for example, `https://design-premium-travel-app.vercel.app/auth/google/callback`). Choose an External audience so client accounts outside your organisation can sign in. The app only requests the basic identity scopes `openid`, `email` and `profile`. Apply the Django migrations and redeploy after adding the Google credentials.
+
+Google can create a traveller account with the user's verified email and name while `TRAVEL_INVITE_ONLY=1`. Email and password testers can still use their existing accounts. Installed clients must include the Google callback handler. Rebuild them after changing the bundle identifier or public origin.
+
+To open email-based signup, configure the verified email sender, add the `/internal/cron/mail` job with schedule `* * * * *` to `vercel.json`, and set `TRAVEL_INVITE_ONLY` to `0` before redeploying. Verify account setup and password reset email delivery before sharing the public launch link.
 
 ## Search and Egypt approval
 
