@@ -47,9 +47,30 @@ export class ApiError extends Error {
   }
 }
 function responseMessage(status: number, message?: string) {
-  if (document.documentElement.lang !== "ar")
+  const arabic = document.documentElement.lang === "ar";
+  if (status === 0) {
+    return arabic
+      ? "تعذّر الاتصال بخدمة السفر. تحقّق من اتصالك بالإنترنت ثم حاول مجدداً."
+      : "We couldn’t connect to the travel service. Check your internet connection and try again.";
+  }
+  if (status >= 500 && !message) {
+    return arabic
+      ? "خدمة السفر غير متاحة مؤقتاً. حاول مجدداً بعد بضع دقائق."
+      : "The travel service is temporarily unavailable. Try again in a few minutes.";
+  }
+  if (!arabic)
     return message || "The travel desk could not complete this request. Please try again.";
   const translations: Record<string, string> = {
+    "Enter a valid email address.": "أدخل عنوان بريد إلكتروني صالحاً.",
+    "Enter the 32-character invite code from the travel desk.": "أدخل رمز الدعوة المكوّن من ٣٢ حرفاً من مكتب السفر.",
+    "That invite could not be used. Check the email and code or ask the travel desk for a new invite.":
+      "تعذّر استخدام الدعوة. تحقّق من البريد الإلكتروني والرمز أو اطلب دعوة جديدة من مكتب السفر.",
+    "Use the email link to create your account.": "استخدم رابط البريد الإلكتروني لإنشاء حسابك.",
+    "Password must be at most 256 characters.": "يجب ألّا تتجاوز كلمة المرور ٢٥٦ حرفاً.",
+    "Use at least 12 characters for your password.": "استخدم ١٢ حرفاً على الأقل في كلمة المرور.",
+    "Choose a less common password.": "اختر كلمة مرور أقل شيوعاً.",
+    "Add letters to your password so it is not all numbers.": "أضف حروفاً إلى كلمة المرور لتجنب استخدام الأرقام فقط.",
+    "Choose a password that is different from your email address.": "اختر كلمة مرور مختلفة عن عنوان بريدك الإلكتروني.",
     "Check your email and password.": "تحقق من بريدك الإلكتروني وكلمة المرور.",
     "Check your current password.": "تحقق من كلمة المرور الحالية.",
     "Account email is unavailable during testing.":
@@ -81,14 +102,19 @@ export async function api<T>(route: string, data?: unknown): Promise<T> {
     if (!csrf) await loadSession();
     headers["X-CSRFToken"] = csrf;
   }
-  const response = await fetch(base + route, {
-    method: data === undefined ? "GET" : "POST",
-    headers,
-    credentials: native ? "omit" : "same-origin",
-    body: form ? data : data === undefined ? undefined : JSON.stringify(data),
-    cache: "no-store",
-    signal: AbortSignal.timeout(20000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(base + route, {
+      method: data === undefined ? "GET" : "POST",
+      headers,
+      credentials: native ? "omit" : "same-origin",
+      body: form ? data : data === undefined ? undefined : JSON.stringify(data),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch {
+    throw new ApiError(responseMessage(0), 0);
+  }
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !response.headers.get("content-type")?.includes("application/json")) {
     if (response.status === 401 && route !== "login") {

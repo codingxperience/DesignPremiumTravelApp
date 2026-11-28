@@ -13,6 +13,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
+from django.db.models import Q
 from django.http import JsonResponse
 from django.middleware.csrf import get_token
 from django.utils import timezone
@@ -53,9 +54,16 @@ def text(value, minimum, maximum):
 
 
 def email_address(value):
-    value = text(value, 3, 150).lower()
-    validate_email(value)
+    try:
+        value = text(value, 3, 150).lower()
+        validate_email(value)
+    except (Invalid, ValidationError) as error:
+        raise Invalid("Enter a valid email address.") from error
     return value
+
+
+def account_exists(email):
+    return User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists()
 
 
 def endpoint(method, private=False, upload=False):
@@ -136,6 +144,10 @@ def sign_in(request, data):
     user = authenticate(request, username=email, password=password)
     if not user:
         raise Invalid("Check your email and password.", 401)
+    return start_session(request, user)
+
+
+def start_session(request, user):
     if request.native:
         token = secrets.token_urlsafe(32)
         DeviceSession.objects.create(
@@ -147,6 +159,53 @@ def sign_in(request, data):
         return {"email": user.email, "token": token}
     login(request, user)
     return {"email": user.email, "csrf": get_token(request)}
+
+
+@endpoint("POST")
+def activate_invite(request, data):
+    if not settings.INVITE_ONLY:
+        raise Invalid("Use the email link to create your account.", 403)
+    fields(data, ["email", "code", "password"])
+    if not allowance("redeem", remote(request), 15, 600):
+        slow_error()
+
+    address = email_address(data["email"])
+    try:
+        code = text(data["code"], 32, 32)
+    except Invalid as error:
+        raise Invalid("Enter the 32-character invite code from the travel desk.") from error
+    password = data["password"]
+    if not isinstance(password, str) or len(password) > 256:
+        raise Invalid("Password must be at most 256 characters.")
+
+    unavailable = "That invite could not be used. Check the email and code or ask the travel desk for a new invite."
+    with transaction.atomic():
+        invitation = EmailLink.objects.select_for_update().filter(
+            email=address, digest=digest(code), purpose="invite", expires__gt=timezone.now()
+        ).first()
+        if invitation is None or account_exists(address):
+            raise Invalid(unavailable)
+
+        user = User(username=address, email=address)
+        try:
+            validate_password(password, user)
+        except ValidationError as error:
+            first = error.error_list[0]
+            messages = {
+                "password_too_short": "Use at least 12 characters for your password.",
+                "password_too_common": "Choose a less common password.",
+                "password_entirely_numeric": "Add letters to your password so it is not all numbers.",
+                "password_too_similar": "Choose a password that is different from your email address.",
+            }
+            raise Invalid(messages.get(first.code, first.messages[0])) from error
+        user.set_password(password)
+        user, created = User.objects.get_or_create(
+            username=address, defaults={"email": address, "password": user.password}
+        )
+        if not created:
+            raise Invalid(unavailable)
+        invitation.delete()
+        return start_session(request, user)
 
 
 def slow_error():
@@ -197,7 +256,7 @@ def set_password(request, data):
     with transaction.atomic():
         link = (
             EmailLink.objects.select_for_update()
-            .filter(digest=digest(raw), expires__gt=timezone.now())
+            .filter(digest=digest(raw), purpose__in=("register", "reset"), expires__gt=timezone.now())
             .first()
         )
         if not link:

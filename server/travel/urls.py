@@ -22,6 +22,7 @@ endpoints = [
     ("approval", trips.create_approval),
     ("session", api.session),
     ("login", api.sign_in),
+    ("activate", api.activate_invite),
     ("logout", api.sign_out),
     ("email", api.send_link),
     ("password", api.set_password),
