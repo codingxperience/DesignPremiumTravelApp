@@ -69,7 +69,11 @@ def account_exists(email):
 
 
 def traveller_name(user):
-    return TravellerProfile.objects.filter(user=user).values_list("full_name", flat=True).first()
+    return (
+        TravellerProfile.objects.filter(user=user).values_list("full_name", flat=True).first()
+        or user.get_full_name()
+        or None
+    )
 
 
 def endpoint(method, private=False, upload=False):
@@ -79,6 +83,9 @@ def endpoint(method, private=False, upload=False):
         def view(request, **kwargs):
             try:
                 request.native = request.path.startswith("/mobile/")
+                request.google_authenticated_at = (
+                    None if request.native else request.session.get("google_authenticated_at")
+                )
                 actor = (
                     request.user
                     if request.user.is_authenticated and not request.native
@@ -100,6 +107,8 @@ def endpoint(method, private=False, upload=False):
                             session.auth_hash, session.user.get_session_auth_hash()
                         ):
                             actor = session.user
+                            if session.google_authenticated_at:
+                                request.google_authenticated_at = session.google_authenticated_at.timestamp()
                 request.actor = actor
                 if private and not actor:
                     raise Invalid("Sign in to continue.", 401)
@@ -136,6 +145,8 @@ def session(request, data):
         "fullName": traveller_name(request.actor) if request.actor else None,
         "csrf": None if request.native else get_token(request),
         "inviteOnly": settings.INVITE_ONLY,
+        "googleSignIn": settings.GOOGLE_SIGN_IN,
+        "passwordless": bool(request.actor and not request.actor.has_usable_password()),
     }
 
 
@@ -154,8 +165,13 @@ def sign_in(request, data):
     return start_session(request, user)
 
 
-def start_session(request, user):
-    account = {"email": user.email, "fullName": traveller_name(user)}
+def start_session(request, user, *, google=False):
+    account = {
+        "email": user.email,
+        "fullName": traveller_name(user),
+        "passwordless": not user.has_usable_password(),
+    }
+    verified_at = timezone.now() if google else None
     if request.native:
         token = secrets.token_urlsafe(32)
         DeviceSession.objects.create(
@@ -163,9 +179,14 @@ def start_session(request, user):
             user=user,
             auth_hash=user.get_session_auth_hash(),
             expires=timezone.now() + timedelta(seconds=settings.SESSION_COOKIE_AGE),
+            google_authenticated_at=verified_at,
         )
         return {**account, "token": token}
-    login(request, user)
+    login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+    if verified_at:
+        request.session["google_authenticated_at"] = verified_at.timestamp()
+    else:
+        request.session.pop("google_authenticated_at", None)
     return {**account, "csrf": get_token(request)}
 
 
@@ -305,16 +326,23 @@ def set_password(request, data):
 
 @endpoint("POST", private=True)
 def delete_account(request, data):
-    fields(data, ["password"])
     if not allowance("delete", str(request.actor.pk), 5, 600):
         slow_error()
-    password = data["password"]
-    if (
-        not isinstance(password, str)
-        or len(password) > 256
-        or not request.actor.check_password(password)
-    ):
-        raise Invalid("Check your current password.", 403)
+    if request.actor.has_usable_password():
+        fields(data, ["password"])
+        password = data["password"]
+        if (
+            not isinstance(password, str)
+            or len(password) > 256
+            or not request.actor.check_password(password)
+        ):
+            raise Invalid("Check your current password.", 403)
+    else:
+        fields(data, ["confirm"])
+        verified = request.google_authenticated_at
+        now = timezone.now().timestamp()
+        if data["confirm"] is not True or not isinstance(verified, (float, int)) or not 0 <= now - verified <= 600:
+            raise Invalid("Sign in again with Google before deleting your account.", 403)
     if request.actor.is_staff or request.actor.is_superuser:
         raise Invalid("Staff accounts are managed by the agency.", 403)
     with transaction.atomic():

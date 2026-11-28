@@ -4,7 +4,7 @@ from django.http import FileResponse, HttpResponse
 from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
 
-from . import api, cron, search, trips
+from . import api, cron, google_sign_in, search, trips
 
 
 def shell(request):
@@ -23,6 +23,7 @@ endpoints = [
     ("session", api.session),
     ("login", api.sign_in),
     ("activate", api.activate_invite),
+    ("google/exchange", google_sign_in.exchange_device_grant),
     ("logout", api.sign_out),
     ("email", api.send_link),
     ("password", api.set_password),
@@ -40,6 +41,9 @@ endpoints = [
 web = [path(route, view) for route, view in endpoints]
 device = [path(route, csrf_exempt(view)) for route, view in endpoints]
 urlpatterns = [
+    path("auth/google/start", google_sign_in.begin),
+    path("auth/google/callback", google_sign_in.callback),
+    path("auth/google/finish", google_sign_in.finish),
     path("internal/cron/mail", cron.mail),
     path("internal/cron/prune", cron.prune),
     path("staff/", admin.site.urls),

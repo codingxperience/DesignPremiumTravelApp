@@ -24,6 +24,7 @@ class DeviceSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     auth_hash = models.CharField(max_length=128)
     expires = models.DateTimeField(db_index=True)
+    google_authenticated_at = models.DateTimeField(null=True)
 
 
 class TravellerProfile(models.Model):
@@ -31,6 +32,18 @@ class TravellerProfile(models.Model):
     full_name = models.CharField(max_length=150)
     phone = models.CharField(max_length=16)
     terms_accepted_at = models.DateTimeField()
+
+
+class GoogleIdentity(models.Model):
+    subject = models.CharField(primary_key=True, max_length=255)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+
+
+class GoogleDeviceGrant(models.Model):
+    digest = models.CharField(primary_key=True, max_length=64)
+    challenge = models.CharField(max_length=43)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    expires = models.DateTimeField(db_index=True)
 
 
 class Trip(models.Model):

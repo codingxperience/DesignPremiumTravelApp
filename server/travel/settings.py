@@ -12,6 +12,9 @@ BASE = Path(__file__).resolve().parents[1]
 LOCAL = os.environ.get("TRAVEL_ENV") == "local"
 VERCEL = os.environ.get("VERCEL") == "1"
 INVITE_ONLY = os.environ.get("TRAVEL_INVITE_ONLY") == "1"
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+GOOGLE_SIGN_IN = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
 CRON_SECRET = os.environ.get("CRON_SECRET", "")
 if VERCEL and len(CRON_SECRET) < 32:
     raise ImproperlyConfigured("Set CRON_SECRET to at least 32 random characters.")

@@ -52,7 +52,11 @@ export function OrDivider() {
   )
 }
 
-export function SocialButtons({ unavailable = false }: { unavailable?: boolean } = {}) {
+export function SocialButtons({
+  unavailable = false,
+  onGoogle,
+  googleBusy,
+}: { unavailable?: boolean; onGoogle?: () => void; googleBusy?: boolean } = {}) {
   const dispatch = useDispatch()
   const toast = useToast()
   const { t } = useI18n()
@@ -66,7 +70,7 @@ export function SocialButtons({ unavailable = false }: { unavailable?: boolean }
       <Button variant="secondary" size="md" disabled={unavailable} icon={<AppleIcon className="size-5" />} onClick={() => signIn('Apple')}>
         {t('auth.apple')}
       </Button>
-      <Button variant="secondary" size="md" disabled={unavailable} icon={<GoogleIcon className="size-5" />} onClick={() => signIn('Google')}>
+      <Button variant="secondary" size="md" disabled={unavailable && !onGoogle} loading={googleBusy} icon={<GoogleIcon className="size-5" />} onClick={onGoogle || (() => signIn('Google'))}>
         {t('auth.google')}
       </Button>
     </div>
