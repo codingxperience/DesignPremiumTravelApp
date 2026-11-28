@@ -3,7 +3,7 @@ import { VISA_COUNTRIES } from '@/data/visas'
 import { cn } from '@/lib/cn'
 import type { TKey } from '@/lib/i18n'
 import { PHOTOS } from '@/lib/images'
-import { useI18n, useNav } from '@/state/store'
+import { useI18n, useLiveApp, useNav } from '@/state/store'
 import { Flag } from '@/ui/Flag'
 import { Heading } from '@/ui/Heading'
 import { Img } from '@/ui/Img'
@@ -14,7 +14,8 @@ import { Screen, ScreenHeader } from '@/ui/Screen'
 const STEPS: TKey[] = ['visa.step1', 'visa.step2', 'visa.step3', 'visa.step4']
 
 export function VisaScreen() {
-  const { t, tp, L, money, num } = useI18n()
+  const live = useLiveApp()
+  const { t, tp, L, money, num, lang } = useI18n()
   const { push } = useNav()
 
   return (
@@ -23,16 +24,16 @@ export function VisaScreen() {
         <Img id={PHOTOS.passportStamps} alt="" width={180} height={210} className="absolute inset-y-0 end-0 h-full w-[44%] opacity-90 [mask-image:linear-gradient(90deg,transparent,#000_45%)] rtl:[mask-image:linear-gradient(270deg,transparent,#000_45%)]" />
         <div className="relative max-w-[62%]">
           <Heading as="h2" size="lg" className="text-ink-950">
-            {t('visa.tagline')}
+            {live ? t('visa.title') : t('visa.tagline')}
           </Heading>
-          <ul className="mt-4 space-y-2">
+          {live ? <p className="mt-3 text-sm">{lang === 'ar' ? 'اختر وجهتك لإرسال استفسار إلى مكتب السفر.' : 'Choose a destination to ask the travel desk about your visa.'}</p> : <ul className="mt-4 space-y-2">
             {(['visa.fast', 'visa.support'] as TKey[]).map((key) => (
               <li key={key} className="flex items-center gap-2 text-[13px] font-semibold">
                 <BadgeCheck className="size-[18px] shrink-0" />
                 {t(key)}
               </li>
             ))}
-          </ul>
+          </ul>}
         </div>
       </div>
 
@@ -49,21 +50,21 @@ export function VisaScreen() {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-semibold">{L(country.name)}</span>
               <span className="block truncate text-[12.5px] text-fg-muted">{L(country.type)}</span>
-              <span className="mt-1 flex items-center gap-1 text-[11.5px] text-fg-subtle">
+              {!live && <span className="mt-1 flex items-center gap-1 text-[11.5px] text-fg-subtle">
                 <Timer className="size-3.5" aria-hidden />
                 {tp('visa.processing', country.processingDays)}
-              </span>
+              </span>}
             </span>
-            <span className="text-end">
+            {!live && <span className="text-end">
               <span className="block text-[11px] text-fg-subtle">{t('visa.fee')}</span>
               <span className="block text-[15px] font-semibold tabular-nums">{money(country.fee)}</span>
-            </span>
+            </span>}
             <ChevronRight className={cn('size-5 shrink-0 text-fg-subtle', FLIP_RTL)} />
           </button>
         ))}
       </Card>
 
-      <h2 className="mb-4 mt-8 text-[18px] font-semibold">{t('visa.how')}</h2>
+      {!live && <><h2 className="mb-4 mt-8 text-[18px] font-semibold">{t('visa.how')}</h2>
       <ol className="relative space-y-5">
         {STEPS.map((step, index) => (
           <li key={step} className="relative flex items-center gap-4">
@@ -75,7 +76,7 @@ export function VisaScreen() {
             {index === STEPS.length - 1 && <ArrowRight className={cn('size-4 text-success', FLIP_RTL)} />}
           </li>
         ))}
-      </ol>
+      </ol></>}
     </Screen>
   )
 }

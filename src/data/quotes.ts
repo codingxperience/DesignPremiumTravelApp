@@ -143,10 +143,10 @@ export const HOTEL_EXTRA_PRICES = { transfer: 35, insurance: 19 } as const
 
 export function hotelQuote(
   hotel: Hotel,
-  options: { nights: number; adults: number; optionId: string; extras: HotelExtras },
+  options: { nights: number; adults: number; rooms?: number; optionId: string; extras: HotelExtras },
 ): PriceLine[] {
   const option = HOTEL_OPTIONS.find((o) => o.id === options.optionId) ?? HOTEL_OPTIONS[0]
-  const rooms = Math.max(1, Math.ceil(options.adults / 2))
+  const rooms = options.rooms ?? Math.max(1, Math.ceil(options.adults / 2))
   const nightly = hotel.pricePerNight + option.delta
   const lines: PriceLine[] = [
     {
@@ -174,7 +174,7 @@ export function hotelQuote(
 
 export function makeHotelDraft(
   hotel: Hotel,
-  options: { nights: number; adults: number; optionId: string; extras: HotelExtras; startDate: string; endDate: string },
+  options: { nights: number; adults: number; rooms?: number; optionId: string; extras: HotelExtras; startDate: string; endDate: string },
 ): BookingDraft {
   const lines = hotelQuote(hotel, options)
   return {

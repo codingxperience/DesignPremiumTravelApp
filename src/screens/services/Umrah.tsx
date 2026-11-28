@@ -23,7 +23,7 @@ const INCLUDED: { icon: typeof Plane; label: TKey }[] = [
   { icon: Headset, label: 'nav.support' },
 ]
 
-export function UmrahScreen({ initialTab = 'umrah' }: { initialTab?: 'umrah' | 'hajj' }) {
+export function UmrahScreen({ initialTab = 'umrah', onHajj }: { initialTab?: 'umrah' | 'hajj'; onHajj?: () => void }) {
   const { t, isRtl } = useI18n()
   const { pop, push } = useNav()
   const { hajjRegistered } = useAppState()
@@ -125,11 +125,12 @@ export function UmrahScreen({ initialTab = 'umrah' }: { initialTab?: 'umrah' | '
                       block
                       className="mt-5"
                       onClick={() => {
+                        if (onHajj) { onHajj(); return }
                         dispatch({ type: 'REGISTER_HAJJ' })
                         toast(t('hajj.registered'))
                       }}
                     >
-                      {t('hajj.register')}
+                      {onHajj ? (isRtl ? 'استفسر عن الحج' : 'Enquire about Hajj') : t('hajj.register')}
                     </Button>
                   )}
                 </div>

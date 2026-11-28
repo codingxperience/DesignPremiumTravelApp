@@ -3,9 +3,11 @@ import { LOCALES, type Lang } from './i18n'
 
 type RangeFormatter = Intl.DateTimeFormat & { formatRange?: (start: Date, end: Date) => string }
 
-/** Prices are always shown in pounds sterling, matching the UK-registered business. */
-export function formatMoney(amount: number): string {
-  return `£${Math.round(amount).toLocaleString('en-GB')}`
+/** Indicative demo conversion using the 2025-01-02 FRED DEXUSUK observation. */
+export function formatMoney(amount: number, currency: 'GBP'|'USD'='GBP'):string {
+  const estimate = currency === 'USD'
+  const whole = Math.round(amount * (estimate ? 1.2376 : 1))
+  return (estimate ? "≈ $" : "£") + whole.toLocaleString('en-GB')
 }
 
 export function formatNumber(lang: Lang, value: number): string {

@@ -26,7 +26,7 @@ import type { Inclusion, TravelPackage } from '@/data/types'
 import { cn } from '@/lib/cn'
 import type { TKey } from '@/lib/i18n'
 import type { DestinationTab } from '@/state/routes'
-import { useI18n, useNav, useToast } from '@/state/store'
+import { useI18n, useLiveApp, useNav, useToast } from '@/state/store'
 import { Button, IconButton } from '@/ui/Button'
 import { Tabs } from '@/ui/Controls'
 import { Heading } from '@/ui/Heading'
@@ -67,13 +67,14 @@ export function InclusionList({ includes, className }: { includes: Inclusion[]; 
 }
 
 export function PackageCard({ travelPackage, onSelect }: { travelPackage: TravelPackage; onSelect: () => void }) {
-  const { t, tp, L, money } = useI18n()
+  const live = useLiveApp()
+  const { t, tp, L, money, lang } = useI18n()
   return (
     <Card className="overflow-hidden">
       <div className="relative h-36 bg-ink-800">
         <Img id={travelPackage.image} alt="" width={350} height={144} className="absolute inset-0 size-full" />
         <span aria-hidden className="absolute inset-0 bg-[linear-gradient(180deg,transparent_45%,rgba(5,11,23,0.7))]" />
-        {travelPackage.tag && (
+        {!live && travelPackage.tag && (
           <Badge tone="solid" className="absolute start-3 top-3">
             {L(travelPackage.tag)}
           </Badge>
@@ -87,11 +88,11 @@ export function PackageCard({ travelPackage, onSelect }: { travelPackage: Travel
         <p className="mt-1.5 text-[13px] leading-relaxed text-fg-muted">{L(travelPackage.summary)}</p>
         <InclusionList includes={travelPackage.includes} className="mt-3.5" />
         <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/[0.06] pt-4">
-          <p>
+          {live ? <span className="text-sm text-fg-muted">{lang === 'ar' ? 'عرض حسب الطلب' : 'Quote on request'}</span> : <p>
             <span className="block text-[11.5px] text-fg-subtle">{t('common.from')}</span>
             <span className="text-[20px] font-semibold tabular-nums">{money(travelPackage.price)}</span>
             <span className="text-[12px] text-fg-muted"> / {t('common.perPerson')}</span>
-          </p>
+          </p>}
           <Button size="sm" onClick={onSelect} iconEnd={<ArrowRight className={cn('size-4', FLIP_RTL)} />}>
             {t('dest.select')}
           </Button>
@@ -129,13 +130,14 @@ function FloatingBar({ title, id }: { title: string; id: string }) {
   const { scrollY } = useScreenScroll()
   const solid = useTransform(scrollY, [HERO_HEIGHT - 180, HERO_HEIGHT - 110], [0, 1])
 
+  const live = useLiveApp()
   const share = async () => {
+    const url = new URL(window.location.href)
+    if (!live) url.searchParams.set('screen', 'destination')
     try {
-      await navigator.clipboard?.writeText(`${window.location.origin}${window.location.pathname}?screen=destination`)
-    } catch {
-      // Clipboard access can be blocked inside embedded previews; the toast still confirms the intent.
-    }
-    toast(t('common.linkCopied'))
+      if (navigator.share) await navigator.share({ title, url: url.href })
+      else if (navigator.clipboard) { await navigator.clipboard.writeText(url.href); toast(t('common.linkCopied')) }
+    } catch { /* The traveller can dismiss the system share sheet. */ }
   }
 
   return (
@@ -169,9 +171,10 @@ function Fact({ icon: Icon, label, value }: { icon: LucideIcon; label: string; v
   )
 }
 
-export function DestinationScreen({ id, initialTab = 'overview' }: { id: string; initialTab?: DestinationTab }) {
+export function DestinationScreen({ id, initialTab = 'overview', onEnquire }: { id: string; initialTab?: DestinationTab; onEnquire?: () => void }) {
   const destination = getDestination(id)
-  const { t, tp, L, money, num } = useI18n()
+  const live = useLiveApp()
+  const { t, tp, L, money, num, lang } = useI18n()
   const { push } = useNav()
   const [photo, setPhoto] = useState(destination.gallery[0])
   const [tab, setTab] = useState<DestinationTab>(initialTab)
@@ -180,6 +183,7 @@ export function DestinationScreen({ id, initialTab = 'overview' }: { id: string;
   const name = L(destination.name)
 
   const book = () => {
+    if (onEnquire) { onEnquire(); return }
     if (packages[0]) push({ name: 'booking', item: { kind: 'package', packageId: packages[0].id } })
     else push({ name: 'flightSearch', to: destination.airport })
   }
@@ -189,13 +193,13 @@ export function DestinationScreen({ id, initialTab = 'overview' }: { id: string;
       label={name}
       footer={
         <StickyFooter className="flex items-center justify-between gap-4">
-          <p>
+          {live ? <span className="text-sm text-fg-muted">{lang === 'ar' ? 'مكتب السفر' : 'Travel desk'}</span> : <p>
             <span className="block text-[12px] text-fg-subtle">{t('common.from')}</span>
             <span className="text-[22px] font-semibold tabular-nums">{money(destination.priceFrom)}</span>
             <span className="text-[12.5px] text-fg-muted"> / {t('common.perPerson')}</span>
-          </p>
+          </p>}
           <Button onClick={book} className="min-w-[156px]" iconEnd={<ArrowRight className={cn('size-5', FLIP_RTL)} />}>
-            {t('dest.bookNow')}
+            {live ? (lang === 'ar' ? 'خطّط لهذه الرحلة' : 'Plan this journey') : t('dest.bookNow')}
           </Button>
         </StickyFooter>
       }
@@ -227,8 +231,8 @@ export function DestinationScreen({ id, initialTab = 'overview' }: { id: string;
 
         <div className="absolute inset-x-5 bottom-10">
           <div className="flex items-center gap-2">
-            <RatingPill rating={destination.rating} />
-            <span className="text-[12.5px] text-white/75">{tp('common.reviews', destination.reviews)}</span>
+            {!live && <><RatingPill rating={destination.rating} />
+            <span className="text-[12.5px] text-white/75">{tp('common.reviews', destination.reviews)}</span></>}
           </div>
           <Heading as="h1" size="2xl" className="mt-3 max-w-[290px] text-white">
             {name}
@@ -241,14 +245,14 @@ export function DestinationScreen({ id, initialTab = 'overview' }: { id: string;
       </div>
 
       <div className="relative -mt-4 rounded-t-[30px] bg-ink-900 px-5 pt-3">
-        <Tabs
+        <Tabs<DestinationTab>
           value={tab}
           onChange={setTab}
           label={name}
           options={[
             { value: 'overview', label: t('dest.tab.overview') },
             { value: 'packages', label: `${t('dest.tab.packages')} · ${num(packages.length)}` },
-            { value: 'essentials', label: t('dest.tab.essentials') },
+            ...(live ? [] : [{ value: 'essentials' as const, label: t('dest.tab.essentials') }]),
           ]}
         />
 

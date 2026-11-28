@@ -1,7 +1,7 @@
 import { motion } from 'motion/react'
 import { Bookmark, MapPin } from 'lucide-react'
 import { DESTINATIONS } from '@/data/destinations'
-import { useAppState, useI18n, useNav } from '@/state/store'
+import { useAppState, useLiveApp, useI18n, useNav } from '@/state/store'
 import { Img } from '@/ui/Img'
 import { EmptyState } from '@/ui/Misc'
 import { EASE_OUT } from '@/ui/motion'
@@ -9,6 +9,7 @@ import { Screen, ScreenHeader } from '@/ui/Screen'
 import { SaveButton } from '../explore/shared'
 
 export function SavedScreen() {
+  const live = useLiveApp()
   const { t, L, money } = useI18n()
   const { saved } = useAppState()
   const { push, reset } = useNav()
@@ -40,7 +41,7 @@ export function SavedScreen() {
                   <MapPin className="size-3 shrink-0" aria-hidden />
                   {L(destination.region)}
                 </p>
-                <p className="mt-1 text-[12.5px] font-semibold text-white">{t('common.fromPrice', { price: money(destination.priceFrom) })}</p>
+                <p className="mt-1 text-[12.5px] font-semibold text-white">{live ? t('dest.tab.overview') : t('common.fromPrice', { price: money(destination.priceFrom) })}</p>
               </div>
             </motion.article>
           ))}

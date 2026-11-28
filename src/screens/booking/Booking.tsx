@@ -228,22 +228,23 @@ function PackageBooking({ packageId }: { packageId: string }) {
   )
 }
 
-function HotelBooking({ hotelId, checkIn, checkOut, adults: initialAdults }: Extract<BookableItem, { kind: 'hotel' }>) {
+function HotelBooking({ hotelId, checkIn, checkOut, adults: initialAdults, rooms: initialRooms }: Extract<BookableItem, { kind: 'hotel' }>) {
   const { t, tp, L, money, date, num } = useI18n()
   const { push } = useNav()
   const hotel = getHotel(hotelId)
   const [range, setRange] = useState({ start: checkIn, end: checkOut })
+  const [rooms,setRooms] = useState(initialRooms ?? Math.ceil(initialAdults / 2))
   const [adults, setAdults] = useState(initialAdults)
   const [optionId, setOptionId] = useState<string>(HOTEL_OPTIONS[0].id)
   const [extras, setExtras] = useState<HotelExtras>({ transfer: true, insurance: false })
   const [datesOpen, setDatesOpen] = useState(false)
   const nights = Math.max(1, daysBetween(range.start, range.end))
-  const lines = hotelQuote(hotel, { nights, adults, optionId, extras })
+  const lines = hotelQuote(hotel, { nights, adults, rooms, optionId, extras })
   const total = sumLines(lines)
   const fmt = (iso: string) => date(iso, { weekday: 'short', day: 'numeric', month: 'short' })
 
   const proceed = () =>
-    push({ name: 'payment', draft: makeHotelDraft(hotel, { nights, adults, optionId, extras, startDate: range.start, endDate: range.end }) })
+    push({ name: 'payment', draft: makeHotelDraft(hotel, { nights, adults, rooms, optionId, extras, startDate: range.start, endDate: range.end }) })
 
   return (
     <Screen
@@ -278,10 +279,11 @@ function HotelBooking({ hotelId, checkIn, checkOut, adults: initialAdults }: Ext
         <Card className="flex items-center justify-between px-4 py-3.5">
           <div>
             <p className="text-[14.5px] font-medium">{t('booking.adults')}</p>
-            <p className="text-[12px] text-fg-subtle">{tp('booking.rooms', Math.ceil(adults / 2))}</p>
+            <p className="text-[12px] text-fg-subtle">{tp('booking.rooms', rooms)}</p>
           </div>
-          <Stepper label={t('booking.adults')} value={adults} min={1} max={6} onChange={setAdults} />
+          <Stepper label={t('booking.adults')} value={adults} min={1} max={9} onChange={n=>{setAdults(n);setRooms(r=>Math.min(r,n))}} />
         </Card>
+        <Card className="mt-2 flex items-center justify-between p-4"><span>{tp('booking.rooms',rooms)}</span><Stepper label={L({en:'Rooms',ar:'الغرف'})} value={rooms} min={1} max={adults} onChange={setRooms} /></Card>
       </Section>
 
       <Section title={t('booking.option')}>

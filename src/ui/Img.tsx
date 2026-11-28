@@ -12,7 +12,7 @@ type ImgProps = {
   crop?: 'faces' | 'entropy' | 'edges'
 }
 
-/** Unsplash image with retina srcset and a soft fade-in once decoded. */
+/** Prefer the bundled photograph and fade it in once loaded. */
 export function Img({ id, alt, width, height, className, priority, crop }: ImgProps) {
   const ref = useRef<HTMLImageElement>(null)
   const [loadedId, setLoadedId] = useState<string | null>(null)
@@ -28,7 +28,7 @@ export function Img({ id, alt, width, height, className, priority, crop }: ImgPr
     <img
       ref={ref}
       src={src}
-      srcSet={`${src} 1x, ${retina} 2x`}
+      srcSet={src === retina ? undefined : `${src} 1x, ${retina} 2x`}
       alt={alt}
       width={width}
       height={height}

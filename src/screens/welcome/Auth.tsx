@@ -8,7 +8,7 @@ import { useAppState, useDispatch, useI18n, useToast } from '@/state/store'
 import { Button, IconButton } from '@/ui/Button'
 import { CheckMark } from '@/ui/Controls'
 import { TextField } from '@/ui/Field'
-import { Flag } from '@/ui/Flag'
+import { InternationalPhone } from '@/ui/InternationalPhone'
 import { Heading } from '@/ui/Heading'
 import { AppleIcon, GoogleIcon } from '@/ui/Icons'
 import { EASE_IOS, EASE_OUT, FLIP_RTL } from '@/ui/motion'
@@ -176,7 +176,7 @@ function SignUp() {
   const errors = {
     name: name.trim().length < 2 ? t('auth.nameError') : undefined,
     email: !EMAIL_PATTERN.test(email) ? t('auth.emailError') : undefined,
-    phone: phone.replace(/\D/g, '').length < 9 ? t('auth.phoneError') : undefined,
+    phone: !phone ? t('auth.phoneError') : undefined,
     password: strength < 2 ? t('auth.passwordError') : undefined,
     terms: !agreed ? t('auth.termsError') : undefined,
   }
@@ -185,7 +185,7 @@ function SignUp() {
   const submit = (event: FormEvent) => {
     event.preventDefault()
     setSubmitted(true)
-    if (valid) dispatch({ type: 'AUTH_GO', screen: 'verify', dir: 1 })
+    if (valid) { dispatch({type:'DEMO_PHONE', phone}); dispatch({ type: 'AUTH_GO', screen: 'verify', dir: 1 }) }
   }
 
   return (
@@ -212,23 +212,8 @@ function SignUp() {
           error={submitted ? errors.email : undefined}
           ltr
         />
-        <TextField
-          label={t('auth.phone')}
-          type="tel"
-          autoComplete="tel-national"
-          inputMode="tel"
-          icon={
-            <span className="flex items-center gap-2 border-e border-white/10 pe-3 text-[15px] font-medium text-fg" dir="ltr">
-              <Flag code="gb" className="size-5" />
-              +44
-            </span>
-          }
-          value={phone}
-          placeholder="7700 900274"
-          onChange={(event) => setPhone(event.target.value)}
-          error={submitted ? errors.phone : undefined}
-          ltr
-        />
+        <InternationalPhone required onChange={setPhone} />
+        {submitted && errors.phone && <p role="alert" className="text-sm text-danger">{errors.phone}</p>}
         <div>
           <TextField
             label={t('auth.password')}
@@ -284,6 +269,7 @@ const SMS_CODE = '2580'
 const RESEND_SECONDS = 30
 
 function Verify() {
+  const { demoPhone } = useAppState()
   const dispatch = useDispatch()
   const toast = useToast()
   const { t, L, num } = useI18n()
@@ -341,7 +327,7 @@ function Verify() {
   return (
     <AuthLayout
       title={t('auth.verifyTitle')}
-      subtitle={t('auth.verifySub', { phone: `\u2066${USER.phoneMasked}\u2069` })}
+      subtitle={t('auth.verifySub', { phone: `\u2066${demoPhone ? demoPhone.slice(0,3)+' ••• '+demoPhone.slice(-4) : USER.phoneMasked}\u2069` })}
       onBack={() => dispatch({ type: 'AUTH_GO', screen: 'signup', dir: -1 })}
     >
       <div className="flex justify-between gap-3" dir="ltr">

@@ -1,3 +1,5 @@
+import {useApprovalCountries} from './approvalCountries'
+import {EgyptScreen} from './Egypt'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, CalendarDays, Check, FileText, IdCard, ImageIcon, LockKeyhole, CloudUpload, UserRound } from 'lucide-react'
@@ -19,7 +21,7 @@ import { Screen, ScreenHeader, StickyFooter } from '@/ui/Screen'
 import { DatesSheet } from '../flights/parts'
 import { applicationInfo, StatusTimeline } from './status'
 
-type DocKey = 'passport' | 'photo' | 'residence'
+type DocKey = 'passport' | 'photo' | 'residence' | 'ticket'
 type Upload = { progress: number; done: boolean }
 
 const DOCS: { key: DocKey; label: TKey; icon: typeof FileText; file: string; optional?: boolean }[] = [
@@ -43,12 +45,13 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
   )
 }
 
-export function ApplicationScreen({ service, countryId }: { service: 'egypt' | 'visa'; countryId: string }) {
+function ApplicationForm({ service, countryId }: { service: 'egypt' | 'visa'; countryId: string }) {
   const { t, tp, L, money, date } = useI18n()
   const { pop, reset } = useNav()
   const { cards, defaultCardId } = useAppState()
   const dispatch = useDispatch()
   const isEgypt = service === 'egypt'
+  const docs = isEgypt ? [...DOCS.filter(doc=>doc.key!=='residence'),{key:'ticket' as const,label:'egypt.doc3' as const,icon:FileText,file:'flight-ticket.jpg',optional:false}] : DOCS
   const visaCountry = getVisaCountry(countryId)
   const country = isEgypt ? EGYPT_APPROVAL : visaCountry
   const fullFee = isEgypt ? EGYPT_APPROVAL.fullFee : (visaCountry?.fee ?? 0)
@@ -56,7 +59,7 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
 
   const [step, setStep] = useState(0)
   const [fullName, setFullName] = useState(USER.name)
-  const [nationality, setNationality] = useState<string>(isEgypt ? 'sd' : 'gb')
+  const [nationality, setNationality] = useState<string>(isEgypt ? countryId.toLowerCase() : 'gb')
   const [passport, setPassport] = useState('P04521873')
   const [dob, setDob] = useState('12/04/1990')
   const [travelDate, setTravelDate] = useState(isEgypt ? CAIRO_QUERY.depart : fromToday(30))
@@ -71,9 +74,9 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
 
   const card = cards.find((c) => c.id === defaultCardId) ?? cards[0]
   const serviceTitle = isEgypt ? t('egypt.title') : `${L(country?.name ?? { en: '', ar: '' })} · ${L(visaCountry?.type ?? { en: '', ar: '' })}`
-  const uploadedCount = DOCS.filter((doc) => uploads[doc.key]?.done).length
+  const uploadedCount = docs.filter((doc) => uploads[doc.key]?.done).length
   const detailsValid = fullName.trim().length > 1 && passport.trim().length >= 6 && /^\d{2}\/\d{2}\/\d{4}$/.test(dob)
-  const docsValid = !!uploads.passport?.done && !!uploads.photo?.done
+  const docsValid = !!uploads.passport?.done && !!uploads.photo?.done && (!isEgypt || !!uploads.ticket?.done)
 
   const upload = (key: DocKey) => {
     let progress = 0
@@ -122,7 +125,7 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
   const footer =
     step < 3 ? (
       <StickyFooter>
-        {step === 1 && !docsValid && <p className="mb-2.5 text-center text-[12.5px] text-fg-subtle">{t('app.upload.needed')}</p>}
+        {step === 1 && !docsValid && <p className="mb-2.5 text-center text-[12.5px] text-fg-subtle">{isEgypt ? L({en:'Attach your passport, personal photo and flight ticket to continue.',ar:'أرفق جواز السفر وصورتك وتذكرة الطيران للمتابعة.'}) : t('app.upload.needed')}</p>}
         <Button
           block
           onClick={next}
@@ -185,7 +188,7 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
               <div>
                 <p className="mb-2 text-[13px] font-medium text-fg-muted">{t('app.nationality')}</p>
                 <div className="flex flex-wrap gap-2">
-                  {NATIONALITIES.map((option) => (
+                  {(isEgypt ? [{id:nationality,name:{en:new Intl.DisplayNames(['en'],{type:'region'}).of(nationality.toUpperCase())!,ar:new Intl.DisplayNames(['ar'],{type:'region'}).of(nationality.toUpperCase())!},flag:nationality}] : NATIONALITIES).map((option) => (
                     <Chip key={option.id} selected={nationality === option.id} onClick={() => setNationality(option.id)}>
                       {L(option.name)}
                     </Chip>
@@ -216,9 +219,19 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
 
           {step === 1 && (
             <div className="mt-6 space-y-3">
-              {DOCS.map((doc) => {
+              {docs.map((doc) => {
                 const state = uploads[doc.key]
                 const Icon = doc.icon
+                if (doc.key === 'ticket') return <label key={doc.key} className="block rounded-[22px] border border-white/15 p-4">
+                  <span className="mb-2 block font-semibold">{t(doc.label)}</span>
+                  <input type="file" accept="image/png,image/jpeg" onChange={event=>{
+                    const file=event.currentTarget.files?.[0]
+                    const valid=!!file && file.size>0 && file.size<=2*1024*1024 && ['image/jpeg','image/png'].includes(file.type)
+                    event.currentTarget.setCustomValidity(valid?'':L({en:'Choose a JPEG or PNG under 2 MB.',ar:'اختر صورة JPEG أو PNG أصغر من ٢ ميغابايت.'}))
+                    if(file && !valid)event.currentTarget.reportValidity()
+                    setUploads(current=>({...current,ticket:{done:valid,progress:valid?100:0}}))
+                  }} />
+                </label>
                 return (
                   <button
                     key={doc.key}
@@ -268,7 +281,7 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
                 <Row label={t('app.service')} value={isEgypt ? t('egypt.title') : L(visaCountry?.type ?? { en: '', ar: '' })} />
                 <Row label={t('app.destination')} value={L(country?.name ?? { en: '', ar: '' })} />
                 <Row label={t('app.applicant')} value={fullName} />
-                <Row label={t('app.nationality')} value={L(NATIONALITIES.find((n) => n.id === nationality)!.name)} />
+                <Row label={t('app.nationality')} value={new Intl.DisplayNames([document.documentElement.lang || 'en'],{type:'region'}).of(nationality.toUpperCase())} />
                 <Row label={t('app.passportNo')} value={<span dir="ltr">{passport}</span>} />
                 <Row label={t('app.travelDate')} value={date(travelDate, { day: 'numeric', month: 'long', year: 'numeric' })} />
                 <Row label={t('app.purpose')} value={t(purpose)} />
@@ -337,4 +350,12 @@ export function ApplicationScreen({ service, countryId }: { service: 'egypt' | '
       <DatesSheet open={datesOpen} onClose={() => setDatesOpen(false)} mode="single" start={travelDate} onApply={(value) => setTravelDate(value)} />
     </Screen>
   )
+}
+
+function EgyptApplication({code}:{code:string}){
+  const {countries}=useApprovalCountries()
+  return countries?.includes(code) ? <ApplicationForm service="egypt" countryId={code}/> : <EgyptScreen/>
+}
+export function ApplicationScreen(props:{service:'egypt'|'visa';countryId:string}){
+  return props.service==='egypt'?<EgyptApplication code={props.countryId}/>:<ApplicationForm {...props}/>
 }

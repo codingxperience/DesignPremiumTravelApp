@@ -7,7 +7,8 @@ import type { FlightQuery } from '@/data/types'
 import { cn } from '@/lib/cn'
 import { addDays, daysBetween, fromIso, TODAY_ISO } from '@/lib/dates'
 import { useI18n, useNav } from '@/state/store'
-import { IconButton } from '@/ui/Button'
+import { Sheet } from '@/ui/Overlay'
+import { Button, IconButton } from '@/ui/Button'
 import { Chip } from '@/ui/Controls'
 import { EmptyState } from '@/ui/Misc'
 import { EASE_OUT, FLIP_RTL } from '@/ui/motion'
@@ -51,6 +52,8 @@ export function FlightResultsScreen({ query }: { query: FlightQuery }) {
   const [day, setDay] = useState(query.depart)
   const [sort, setSort] = useState<Sort>('best')
   const [directOnly, setDirectOnly] = useState(false)
+  const [filters,setFilters]=useState(false)
+  const [carrier,setCarrier]=useState(''),[period,setPeriod]=useState('any')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -67,14 +70,17 @@ export function FlightResultsScreen({ query }: { query: FlightQuery }) {
   const flights = useMemo(() => searchFlights(active), [active])
 
   const ranked = useMemo(() => {
-    const filtered = directOnly ? flights.filter((f) => f.stops === 0) : flights
+    const filtered=flights.filter(f=>{
+      const hour=Number(f.dep.slice(0,2))
+      return (!directOnly || f.stops===0) && (!carrier || f.airline.code===carrier) && (period==='any' || (hour<12?'morning':hour<18?'afternoon':'evening')===period)
+    })
     const sorters: Record<Sort, (a: (typeof flights)[number], b: (typeof flights)[number]) => number> = {
       best: (a, b) => bestScore(a) - bestScore(b),
       cheapest: (a, b) => a.price - b.price,
       fastest: (a, b) => a.durationMin - b.durationMin,
     }
     return [...filtered].sort(sorters[sort])
-  }, [flights, directOnly, sort])
+  }, [flights, directOnly, sort, carrier, period])
 
   const tags = useMemo(() => {
     if (!flights.length) return {}
@@ -107,7 +113,7 @@ export function FlightResultsScreen({ query }: { query: FlightQuery }) {
           title={title}
           subtitle={subtitle}
           actions={
-            <IconButton label={t('flights.edit')} onClick={pop}>
+            <IconButton label={L({en:'Flight filters',ar:'تصفية الرحلات'})} onClick={()=>setFilters(true)}>
               <SlidersHorizontal />
             </IconButton>
           }
@@ -189,6 +195,11 @@ export function FlightResultsScreen({ query }: { query: FlightQuery }) {
           )}
         </AnimatePresence>
       </div>
+      <Sheet open={filters} onClose={()=>setFilters(false)} title={L({en:'Flight filters',ar:'تصفية الرحلات'})} label={L({en:'Flight filters',ar:'تصفية الرحلات'})} footer={<Button block onClick={()=>setFilters(false)}>{t('common.done')}</Button>}>
+        <label className="block py-2">{L({en:'Airline',ar:'شركة الطيران'})}<select className="ms-3 rounded-lg bg-ink-800 p-2" value={carrier} onChange={e=>setCarrier(e.target.value)}><option value="">{L({en:'All airlines',ar:'كل الشركات'})}</option>{[...new Map(flights.map(f=>[f.airline.code,f.airline])).values()].map(a=><option key={a.code} value={a.code}>{L(a.name)}</option>)}</select></label>
+        <label className="block py-2">{L({en:'Departure time',ar:'وقت المغادرة'})}<select className="ms-3 rounded-lg bg-ink-800 p-2" value={period} onChange={e=>setPeriod(e.target.value)}><option value="any">{L({en:'Any time',ar:'أي وقت'})}</option><option value="morning">00:00–11:59</option><option value="afternoon">12:00–17:59</option><option value="evening">18:00–23:59</option></select></label>
+        <label className="flex items-center gap-2 py-3"><input type="checkbox" checked={directOnly} onChange={e=>setDirectOnly(e.target.checked)} />{t('flights.directOnly')}</label>
+      </Sheet>
     </Screen>
   )
 }

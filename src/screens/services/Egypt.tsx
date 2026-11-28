@@ -1,9 +1,11 @@
+import {useState} from 'react'
+import {useApprovalCountries} from './approvalCountries'
 import { ArrowRight, Check, ChevronLeft, CircleQuestionMark, Plane, ShieldCheck, Tag } from 'lucide-react'
 import { EGYPT_APPROVAL } from '@/data/visas'
 import { cn } from '@/lib/cn'
 import type { TKey } from '@/lib/i18n'
 import { PHOTOS } from '@/lib/images'
-import { useI18n, useNav } from '@/state/store'
+import { useI18n, useLiveApp, useNav } from '@/state/store'
 import { Button, IconButton } from '@/ui/Button'
 import { Flag } from '@/ui/Flag'
 import { Heading } from '@/ui/Heading'
@@ -18,10 +20,14 @@ const BENEFITS: { icon: typeof Plane; label: TKey }[] = [
   { icon: Tag, label: 'egypt.b3' },
 ]
 
-const DOCUMENTS: TKey[] = ['egypt.doc1', 'egypt.doc2', 'egypt.doc3', 'egypt.doc4']
+const DOCUMENTS: TKey[] = ['egypt.doc1', 'egypt.doc2', 'egypt.doc3']
 
 export function EgyptScreen() {
-  const { t, money, isRtl } = useI18n()
+  const live = useLiveApp()
+  const { t, money, isRtl, L, lang } = useI18n()
+  const {countries,failed,retry}=useApprovalCountries()
+  const [nationality,setNationality]=useState('')
+  const eligible=!!countries?.includes(nationality)
   const { pop, push } = useNav()
 
   return (
@@ -29,14 +35,14 @@ export function EgyptScreen() {
       label={t('egypt.title')}
       footer={
         <StickyFooter className="flex items-center justify-between gap-4">
-          <div>
+          {live ? <span className="text-sm text-fg-muted">{isRtl ? 'مكتب السفر' : 'Travel desk'}</span> : <div>
             <p className="text-[12px] text-fg-subtle">{t('egypt.fee')}</p>
             <p className="flex items-baseline gap-2">
               <span className="text-[22px] font-semibold tabular-nums">{money(EGYPT_APPROVAL.fee)}</span>
               <span className="text-[13px] text-fg-subtle line-through tabular-nums">{money(EGYPT_APPROVAL.fullFee)}</span>
             </p>
-          </div>
-          <Button onClick={() => push({ name: 'application', service: 'egypt', countryId: 'egypt' })} className="min-w-[170px]" iconEnd={<ArrowRight className={cn('size-5', FLIP_RTL)} />}>
+          </div>}
+          <Button disabled={!eligible} onClick={() => push({ name: 'application', service: 'egypt', countryId: nationality })} className="min-w-[170px]" iconEnd={<ArrowRight className={cn('size-5', FLIP_RTL)} />}>
             {t('egypt.start')}
           </Button>
         </StickyFooter>
@@ -52,7 +58,7 @@ export function EgyptScreen() {
           </IconButton>
         </div>
         <div className="absolute inset-x-5 bottom-6">
-          <Badge tone="solid">{t('egypt.kicker')}</Badge>
+          <Badge tone="solid">{live ? t('service.egypt') : t('egypt.kicker')}</Badge>
           <div className="mt-4 flex items-center gap-3">
             <Flag code="eg" className="size-8" />
             <Heading as="h1" size="xl" className="text-white">
@@ -67,7 +73,12 @@ export function EgyptScreen() {
         </div>
       </div>
 
-      <div className="px-5">
+      <div className="space-y-4 px-5 pb-5">
+        <p>{L({en:'A flight ticket is required before the agency can apply for Egypt security approval. Have a clear photo or screenshot of the ticket ready.',ar:'يشترط المكتب تذكرة طيران قبل تقديم طلب الموافقة الأمنية لمصر. جهّز صورة واضحة للتذكرة.'})}</p>
+        {failed ? <p role="status">{L({en:'Eligibility is unavailable. Contact the travel desk or try again.',ar:'تعذر تحميل قائمة الأهلية. تواصل مع المكتب أو حاول مجدداً.'})} <button onClick={retry} className="text-orange-300">{L({en:'Retry',ar:'إعادة المحاولة'})}</button></p> : countries===null ? <p role="status">{L({en:'Checking passport countries…',ar:'جارٍ تحميل دول جواز السفر…'})}</p> : !countries.length ? <p role="status">{L({en:'Applications will open when the agency publishes the eligible passport countries.',ar:'ستتاح الطلبات عندما ينشر المكتب قائمة دول جواز السفر المؤهلة.'})}</p> :
+        <label className="block text-sm">{L({en:'Passport country',ar:'دولة جواز السفر'})}<select className="mt-2 w-full rounded-xl bg-ink-800 p-3" value={nationality} onChange={e=>setNationality(e.target.value)}><option value="">{L({en:'Select your passport country',ar:'اختر دولة جواز السفر'})}</option>{countries.map(code=><option value={code} key={code}>{new Intl.DisplayNames([lang],{type:'region'}).of(code)}</option>)}</select></label>}
+      </div>
+      {!live && <div className="px-5">
         <p className="text-[19px] font-semibold leading-snug">{t('egypt.lead')}</p>
         <p className="mt-2 text-[14.5px] leading-relaxed text-fg-muted">{t('egypt.body')}</p>
 
@@ -87,7 +98,7 @@ export function EgyptScreen() {
             <CircleQuestionMark className="size-5 text-sky" />
             <h2 className="text-[15.5px] font-semibold">{t('egypt.who')}</h2>
           </div>
-          <p className="mt-2.5 text-[13.5px] leading-relaxed text-fg-muted">{t('egypt.whoBody')}</p>
+          <p className="mt-2.5 text-[13.5px] leading-relaxed text-fg-muted">{L({en:'Eligibility follows the passport-country list published by the agency.',ar:'تتحدد الأهلية وفق قائمة دول الجوازات التي ينشرها المكتب.'})}</p>
         </Card>
 
         <h2 className="mb-3 mt-7 text-[16px] font-semibold">{t('egypt.docs')}</h2>
@@ -101,7 +112,7 @@ export function EgyptScreen() {
             </div>
           ))}
         </Card>
-      </div>
+      </div>}
     </Screen>
   )
 }
