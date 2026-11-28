@@ -2,6 +2,7 @@ import re
 import secrets
 from datetime import timedelta
 from io import BytesIO
+from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth import get_user_model
@@ -98,6 +99,17 @@ class DeploymentBoundaryTests(SimpleTestCase):
         self.assertEqual(config["ALLOWED_HOSTS"], ["travel.example.com"])
         self.assertEqual(config["CSRF_TRUSTED_ORIGINS"], ["https://travel.example.com"])
         self.assertIsNone(config["SECURE_PROXY_SSL_HEADER"])
+
+    def test_vercel_waitress_uses_the_https_scheme_without_trusting_proxy_headers(self):
+        from serve import options
+
+        with patch.dict("os.environ", {"VERCEL": "1"}, clear=True):
+            config = options()
+        self.assertEqual(config["url_scheme"], "https")
+        self.assertNotIn("trusted_proxy", config)
+
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertNotIn("url_scheme", options())
 
     def test_vercel_deployment_url_rejects_paths_and_credentials(self):
         for deployment_url in (
