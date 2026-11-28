@@ -53,7 +53,15 @@ def list_trips(request, data):
     if not 1 <= page <= 10000:
         raise Invalid("Invalid page.")
     start = (page - 1) * 20
-    rows = list(Trip.objects.filter(owner=request.actor)[start : start + 21])
+    trips = Trip.objects.filter(owner=request.actor)
+    period = request.GET.get("period")
+    if period == "upcoming":
+        trips = trips.filter(departure__gte=timezone.localdate()).order_by("departure", "id")
+    elif period == "past":
+        trips = trips.filter(departure__lt=timezone.localdate()).order_by("-departure", "id")
+    elif period:
+        raise Invalid("Choose upcoming or past trips.")
+    rows = list(trips[start : start + 21])
     return {"trips": [summary(t) for t in rows[:20]], "more": len(rows) > 20}
 
 

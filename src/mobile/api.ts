@@ -7,6 +7,7 @@ let bearer = "";
 let csrf = "";
 export type Session = {
   email: string | null;
+  fullName?: string | null;
   csrf?: string;
   token?: string;
   inviteOnly?: boolean;
@@ -62,6 +63,9 @@ function responseMessage(status: number, message?: string) {
     return message || "The travel desk could not complete this request. Please try again.";
   const translations: Record<string, string> = {
     "Enter a valid email address.": "أدخل عنوان بريد إلكتروني صالحاً.",
+    "Enter your full name.": "أدخل اسمك الكامل.",
+    "Enter a valid mobile number with its country calling code.": "أدخل رقم جوال صالحاً مع رمز الاتصال الدولي.",
+    "Accept the Terms of Service and Privacy Policy to continue.": "وافق على شروط الخدمة وسياسة الخصوصية للمتابعة.",
     "Enter the 32-character invite code from the travel desk.": "أدخل رمز الدعوة المكوّن من ٣٢ حرفاً من مكتب السفر.",
     "That invite could not be used. Check the email and code or ask the travel desk for a new invite.":
       "تعذّر استخدام الدعوة. تحقّق من البريد الإلكتروني والرمز أو اطلب دعوة جديدة من مكتب السفر.",

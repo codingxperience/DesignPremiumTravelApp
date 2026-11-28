@@ -22,6 +22,7 @@ from .models import (
     Message,
     Quote,
     Trip,
+    TravellerProfile,
     Window,
 )
 from .security import digest, remote
@@ -356,6 +357,42 @@ class TravelTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password(self.secret))
         self.assertFalse(get_user_model().objects.filter(username="expired@example.test").exists())
+
+    @override_settings(INVITE_ONLY=True)
+    def test_invited_registration_records_contact_and_consent_and_deletes_them(self):
+        client = Client()
+        address = "profile-reviewer@example.test"
+        output = StringIO()
+        call_command("issue_invite", address, stdout=output)
+        payload = {
+            "email": address,
+            "code": output.getvalue().strip(),
+            "password": secrets.token_urlsafe(24),
+            "fullName": "Review Traveller",
+            "phone": "+256772123456",
+            "acceptedTerms": True,
+        }
+        self.assertEqual(
+            self.post("/mobile/activate", payload | {"acceptedTerms": False}, client).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.post("/mobile/activate", payload | {"phone": "0772123456"}, client).status_code,
+            400,
+        )
+        self.assertFalse(TravellerProfile.objects.filter(user__email=address).exists())
+        response = self.post("/mobile/activate", payload, client)
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["fullName"], "Review Traveller")
+        profile = TravellerProfile.objects.get(user__email=address)
+        self.assertEqual(profile.phone, "+256772123456")
+        self.assertIsNotNone(profile.terms_accepted_at)
+        result = self.post(
+            "/mobile/delete", {"password": payload["password"]}, client,
+            HTTP_AUTHORIZATION="Bearer " + response.json()["token"],
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertFalse(TravellerProfile.objects.filter(user__email=address).exists())
 
     def test_device_channel_ignores_browser_credentials(self):
         self.assertEqual(self.client.get("/mobile/trips").status_code, 403)

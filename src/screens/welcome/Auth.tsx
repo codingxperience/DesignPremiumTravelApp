@@ -15,7 +15,7 @@ import { EASE_IOS, EASE_OUT, FLIP_RTL } from '@/ui/motion'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function AuthLayout({ title, subtitle, onBack, children }: { title: string; subtitle: string; onBack: () => void; children: ReactNode }) {
+export function AuthLayout({ title, subtitle, onBack, children, trailing }: { title: string; subtitle: string; onBack: () => void; children: ReactNode; trailing?: ReactNode }) {
   const { t } = useI18n()
   return (
     <section className="absolute inset-0 overflow-hidden bg-ink-900">
@@ -27,7 +27,7 @@ function AuthLayout({ title, subtitle, onBack, children }: { title: string; subt
             <ChevronLeft className={FLIP_RTL} />
           </IconButton>
           <LogoMark className="h-7 w-auto" title={t('brand.full')} />
-          <span className="size-11" aria-hidden />
+          {trailing ? <span className="flex w-11 justify-end">{trailing}</span> : <span className="size-11" aria-hidden />}
         </div>
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: EASE_OUT, delay: 0.05 }}>
           <Heading as="h1" size="xl" className="mt-9">
@@ -41,7 +41,7 @@ function AuthLayout({ title, subtitle, onBack, children }: { title: string; subt
   )
 }
 
-function OrDivider() {
+export function OrDivider() {
   const { t } = useI18n()
   return (
     <div className="my-7 flex items-center gap-4" role="separator">
@@ -52,27 +52,28 @@ function OrDivider() {
   )
 }
 
-function SocialButtons() {
+export function SocialButtons({ unavailable = false }: { unavailable?: boolean } = {}) {
   const dispatch = useDispatch()
   const toast = useToast()
   const { t } = useI18n()
   const signIn = (provider: string) => {
+    if (unavailable) return
     dispatch({ type: 'SIGN_IN' })
     toast(t('auth.socialToast', { provider }))
   }
   return (
     <div className="grid grid-cols-2 gap-3">
-      <Button variant="secondary" size="md" icon={<AppleIcon className="size-5" />} onClick={() => signIn('Apple')}>
+      <Button variant="secondary" size="md" disabled={unavailable} icon={<AppleIcon className="size-5" />} onClick={() => signIn('Apple')}>
         {t('auth.apple')}
       </Button>
-      <Button variant="secondary" size="md" icon={<GoogleIcon className="size-5" />} onClick={() => signIn('Google')}>
+      <Button variant="secondary" size="md" disabled={unavailable} icon={<GoogleIcon className="size-5" />} onClick={() => signIn('Google')}>
         {t('auth.google')}
       </Button>
     </div>
   )
 }
 
-function PasswordToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+export function PasswordToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
   const { t } = useI18n()
   return (
     <button

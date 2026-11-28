@@ -26,8 +26,8 @@ export function Policy({ terms, remove }: { terms: boolean; remove: () => void }
           <h2>{t("Your travel file", "ملف السفر")}</h2>
           <p>
             {t(
-              "Cross World Travel uses your email and a password hash to manage your account. The travel desk receives the service, destination, date, party size, messages, quote decisions, supplier confirmations and any photo you choose to send. The desk also receives your optional contact phone, preferred currency, selected rooms or flight legs and filters. Egypt approval applications include passport nationality and a flight ticket image.",
-              "تستخدم كروس وورلد ترافل بريدك وبصمة مشفرة لكلمة المرور لإدارة حسابك. يتلقى المكتب نوع الخدمة والوجهة والتاريخ وعدد المسافرين والرسائل وقرارات العروض وتأكيدات الحجز والصورة التي ترسلها. يتلقى المكتب أيضاً هاتف التواصل الاختياري والعملة المفضلة وعدد الغرف أو مسار الرحلات وتفضيلاتها. يشمل طلب الموافقة الأمنية لمصر جنسية جواز السفر وصورة التذكرة.",
+              "Cross World Travel uses your email and a password hash to manage your account. When you create a tester account, we save your name, mobile number and when you accepted the terms. The travel desk receives the service, destination, date, party size, messages, quote decisions, supplier confirmations and any photo you choose to send. The desk also receives your optional request contact phone, preferred currency, selected rooms or flight legs and filters. Egypt approval applications include passport nationality and a flight ticket image.",
+              "تستخدم كروس وورلد ترافل بريدك وبصمة مشفرة لكلمة المرور لإدارة حسابك. عند إنشاء حساب اختباري نحفظ اسمك ورقم جوالك ووقت موافقتك على الشروط. يتلقى المكتب نوع الخدمة والوجهة والتاريخ وعدد المسافرين والرسائل وقرارات العروض وتأكيدات الحجز والصورة التي ترسلها. يتلقى المكتب أيضاً هاتف التواصل الاختياري للطلب والعملة المفضلة وعدد الغرف أو مسار الرحلات وتفضيلاتها. يشمل طلب الموافقة الأمنية لمصر جنسية جواز السفر وصورة التذكرة.",
             )}
           </p>
           <h2>{t("Storage and access", "التخزين والوصول")}</h2>

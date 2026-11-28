@@ -29,6 +29,7 @@ const Chevron = () => <ChevronRight className={cn('size-5 shrink-0 text-fg-subtl
 
 type AccountActions = {
   email: string | null
+  fullName?: string | null
   open: (page: 'account' | 'privacy' | 'terms' | 'requests') => void
 }
 
@@ -71,7 +72,7 @@ export function ProfileScreen({ account }: { account?: AccountActions }) {
           </button>}
         </div>
         <Heading as="h1" size="lg" className="mt-5">
-          {account ? account.email?.split('@')[0] || L({ en: 'Traveller', ar: 'مسافر' }) : USER.name}
+          {account ? (account.fullName || account.email?.split('@')[0] || L({ en: 'Traveller', ar: 'مسافر' })) : USER.name}
         </Heading>
         <p className="mt-1 text-[13.5px] text-fg-muted">{account ? account.email || L({ en: 'Traveller account', ar: 'حساب المسافر' }) : L(USER.city)}</p>
         {!account && <p className="mt-0.5 text-[12px] text-fg-subtle">{t('profile.memberSince', { year: num(USER.memberSince) })}</p>}

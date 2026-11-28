@@ -1,18 +1,26 @@
-import { useAppState } from "@/state/store";
+import { DESTINATIONS } from "@/data/destinations";
+import { TAB_BAR_SPACE } from "@/navigation/BottomNav";
+import { useAppState, useI18n } from "@/state/store";
+import { Button } from "@/ui/Button";
+import { Segmented } from "@/ui/Controls";
+import { Heading } from "@/ui/Heading";
+import { Img } from "@/ui/Img";
+import { Badge } from "@/ui/Misc";
+import { Screen } from "@/ui/Screen";
 import { InternationalPhone } from "@/ui/InternationalPhone";
 import type { Journey } from "@/screens/flights/JourneyResults";
-import { useContext, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useContext, useEffect, useState, type FormEvent } from "react";
 import { api, type Detail, type Trip, type Service } from "./api";
 import { Locale, services, shortDate, today, useText } from "./ui";
 
-function useLoad<T>(route: string) {
+export function useLoad<T>(route: string, retain = false) {
   const [data, setData] = useState<T | null>(null),
     [error, setError] = useState(""),
     [version, setVersion] = useState(0);
   useEffect(() => {
     let active = true;
     setError("");
-    setData(null);
+    if (!retain) setData(null);
     api<T>(route)
       .then((value) => {
         if (active) setData(value);
@@ -23,8 +31,9 @@ function useLoad<T>(route: string) {
     return () => {
       active = false;
     };
-  }, [route, version]);
-  return { data, error, refresh: () => setVersion((v) => v + 1) };
+  }, [route, version, retain]);
+  const refresh = useCallback(() => setVersion((v) => v + 1), []);
+  return { data, error, refresh };
 }
 function LoadState({ error, retry }: { error: string; retry: () => void }) {
   const t = useText();
@@ -239,50 +248,128 @@ export function RequestList({
   onNew: () => void;
 }) {
   const t = useText(),
+    { t: copy } = useI18n(),
     ar = useContext(Locale),
+    [period, setPeriod] = useState<"upcoming" | "past">("upcoming"),
     [page, setPage] = useState(1),
-    { data, error, refresh } = useLoad<{ trips: Trip[]; more: boolean }>("trips?page=" + page);
+    { data, error, refresh } = useLoad<{ trips: Trip[]; more: boolean }>(
+      "trips?" + new URLSearchParams({ period, page: String(page) }),
+    );
   return (
-    <section className="panel">
-      <p className="kicker">{t("Travel desk", "مكتب السفر")}</p>
-      <h1>{t("My requests", "طلباتي")}</h1>
-      {!data ? (
-        <LoadState error={error} retry={refresh} />
-      ) : (
-        <>
-          {!data.trips.length && (
-            <p>
-              {t(
-                "Your first journey starts with a request. Once you send it, you can follow it here.",
-                "تبدأ رحلتك الأولى بطلب. بعد إرساله يمكنك متابعته هنا.",
-              )}
-            </p>
-          )}
-          {data.trips.map((trip) => (
-            <button className="trip-row" key={trip.id} onClick={() => onOpen(trip.id)}>
-              <span>
-                <small>{t(...services[trip.service])}</small>
-                <strong dir="auto">{trip.destination}</strong>
-              </span>
-              <span>{shortDate(trip.departure, ar)} ›</span>
-            </button>
-          ))}
-          <div className="links">
-            {page > 1 && (
-              <button onClick={() => setPage(page - 1)}>{t("Previous", "السابق")}</button>
+    <Screen
+      bottomInset={TAB_BAR_SPACE}
+      label={copy("trips.title")}
+      className="px-5 pt-[calc(var(--sat)+18px)]"
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[360px] bg-[radial-gradient(110%_60%_at_80%_0%,rgba(22,69,137,0.55),rgba(8,18,38,0)_70%)]"
+      />
+      <Heading as="h1" size="xl" className="relative">
+        {copy("trips.title")}
+      </Heading>
+      <Segmented
+        className="relative mt-5"
+        label={copy("trips.title")}
+        value={period}
+        onChange={(value) => {
+          setPeriod(value);
+          setPage(1);
+        }}
+        options={[
+          { value: "upcoming", label: copy("trips.upcoming") },
+          { value: "past", label: copy("trips.past") },
+        ]}
+      />
+      <div className="relative my-6 space-y-4">
+        {!data ? (
+          <LoadState error={error} retry={refresh} />
+        ) : (
+          <>
+            {!data.trips.length && (
+              <p className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 text-sm text-fg-muted">
+                {period === "past"
+                  ? t(
+                      "Your earlier travel requests will appear here.",
+                      "ستظهر طلبات سفرك السابقة هنا.",
+                    )
+                  : t(
+                      "Your upcoming travel requests will appear here.",
+                      "ستظهر طلبات سفرك القادمة هنا.",
+                    )}
+              </p>
             )}
-            {data.more && <button onClick={() => setPage(page + 1)}>{t("Next", "التالي")}</button>}
-          </div>
-        </>
-      )}
-      <button className="primary" onClick={onNew}>
-        {t("New travel request", "طلب سفر جديد")}
-      </button>
-    </section>
+            {data.trips.map((trip) => {
+              const name = trip.destination.trim().toLowerCase();
+              const destination = DESTINATIONS.find((place) =>
+                [place.id, place.name.en.toLowerCase(), place.name.ar].includes(name),
+              );
+              return (
+                <button
+                  type="button"
+                  className="relative block h-[226px] w-full overflow-hidden rounded-[28px] bg-ink-800 text-start shadow-[0_26px_40px_-26px_rgba(0,0,0,0.9)]"
+                  key={trip.id}
+                  onClick={() => onOpen(trip.id)}
+                >
+                  {destination && (
+                    <Img
+                      id={destination.image}
+                      alt=""
+                      width={350}
+                      height={226}
+                      className="absolute inset-0 size-full"
+                    />
+                  )}
+                  <span
+                    aria-hidden
+                    className="absolute inset-0 bg-[linear-gradient(180deg,rgba(5,11,23,0.55)_0%,rgba(5,11,23,0.05)_38%,rgba(5,11,23,0.92)_100%)]"
+                  />
+                  <div className="absolute inset-x-4 top-4">
+                    <Badge tone="glass">{t(...services[trip.service])}</Badge>
+                  </div>
+                  <div className="absolute inset-x-4 bottom-4">
+                    <p dir="auto" className="heading text-[22px] leading-[1.1] text-white">
+                      {trip.destination}
+                    </p>
+                    <p className="mt-1.5 text-[13px] text-white/80">
+                      {shortDate(trip.departure, ar)} · {trip.travellers}{" "}
+                      {t("travellers", "مسافرين")}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+            <div className="flex justify-between gap-2">
+              {page > 1 && (
+                <Button size="sm" variant="secondary" onClick={() => setPage(page - 1)}>
+                  {t("Previous", "السابق")}
+                </Button>
+              )}
+              {data.more && (
+                <Button size="sm" variant="secondary" onClick={() => setPage(page + 1)}>
+                  {t("Next", "التالي")}
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+        <Button block onClick={onNew}>
+          {t("New travel request", "طلب سفر جديد")}
+        </Button>
+      </div>
+    </Screen>
   );
 }
 
-export function RequestDetail({ id, back }: { id: string; back: () => void }) {
+export function RequestDetail({
+  id,
+  back,
+  openConversation,
+}: {
+  id: string;
+  back: () => void;
+  openConversation: () => void;
+}) {
   const t = useText(),
     ar = useContext(Locale),
     route = "trips/" + id,
@@ -295,29 +382,7 @@ export function RequestDetail({ id, back }: { id: string; back: () => void }) {
     setNotice("");
     try {
       await api(route + "/" + action, payload);
-      setOlder([]);
-      setMore(true);
       refresh();
-    } catch (e) {
-      setNotice((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  const [older, setOlder] = useState<Detail["messages"]>([]);
-  const [more, setMore] = useState(true);
-  const allMessages = [...older, ...(data?.messages ?? [])].filter(
-    (m, i, items) => i === 0 || items[i - 1].id !== m.id,
-  );
-  async function loadEarlier() {
-    if (!allMessages.length || busy) return;
-    setBusy(true);
-    try {
-      const batch = await api<{ messages: Detail["messages"]; more: boolean }>(
-        route + "/history?before=" + allMessages[0].id,
-      );
-      setOlder((prev) => [...batch.messages, ...prev]);
-      setMore(batch.more);
     } catch (e) {
       setNotice((e as Error).message);
     } finally {
@@ -427,48 +492,12 @@ export function RequestDetail({ id, back }: { id: string; back: () => void }) {
       </section>
       <section className="panel">
         <h2>{t("Conversation", "المحادثة")}</h2>
-        <button
-          className="text-button"
-          onClick={() => {
-            setOlder([]);
-            setMore(true);
-            refresh();
-          }}
-          disabled={busy}
-        >
+        <button type="button" className="primary" onClick={openConversation}>
+          {t("Message the travel desk", "راسل مكتب السفر")}
+        </button>
+        <button type="button" className="text-button" onClick={refresh} disabled={busy}>
           {t("Refresh travel file", "تحديث ملف السفر")}
         </button>
-        {more && data.messages.length === 100 && (
-          <button className="text-button" disabled={busy} onClick={loadEarlier}>
-            {t("Earlier messages", "الرسائل السابقة")}
-          </button>
-        )}
-        {allMessages.length === 0 ? (
-          <p>
-            {t("Ask the travel desk a question about this request.", "اسأل المكتب عن هذا الطلب.")}
-          </p>
-        ) : (
-          allMessages.map((m) => (
-            <div className={"message " + (m.staff ? "staff" : "")} key={m.id}>
-              <small>{m.staff ? t("Travel desk", "مكتب السفر") : t("You", "أنت")}</small>
-              <p dir="auto">{m.body}</p>
-            </div>
-          ))
-        )}
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void act("messages", { body: new FormData(e.currentTarget).get("body") });
-          }}
-        >
-          <label>
-            {t("Message", "الرسالة")}
-            <textarea name="body" rows={3} required maxLength={1000} />
-          </label>
-          <button className="secondary" disabled={busy}>
-            {t("Send message", "إرسال رسالة")}
-          </button>
-        </form>
       </section>
       {notice && (
         <p className="error" role="alert">

@@ -12,12 +12,12 @@ import { getVisaCountry } from "@/data/visas";
 import { BottomNav } from "@/navigation/BottomNav";
 import { DestinationScreen } from "@/screens/explore/Destination";
 import { SplashScreen } from "@/screens/welcome/Splash";
+import { OnboardingScreen } from "@/screens/welcome/Onboarding";
 import { HomeScreen } from "@/screens/explore/Home";
 import { SearchScreen } from "@/screens/explore/Search";
 import type { Journey } from "@/screens/flights/JourneyResults";
 import { FlightSearchScreen } from "@/screens/flights/FlightSearch";
 import { ProfileScreen } from "@/screens/profile/Profile";
-import { SupportScreen } from "@/screens/support/Support";
 import { SavedScreen } from "@/screens/profile/Saved";
 import { HotelsScreen } from "@/screens/services/Hotels";
 import { HolidaysScreen } from "@/screens/services/Holidays";
@@ -33,6 +33,7 @@ import { IconButton } from "@/ui/Button";
 import { ToastHost } from "@/ui/Toast";
 import { StatusBar } from "@/shell/PhoneFrame";
 import { Account } from "./Account";
+import { TravelSupport } from "./TravelSupport";
 import { Policy } from "./Policy";
 import { RequestDetail, RequestForm, RequestList } from "./Requests";
 import { loadSession, type Service } from "./api";
@@ -65,6 +66,9 @@ function back() {
 }
 
 const reviewRoutes: Partial<Record<ScreenId, string>> = {
+  splash: "splash",
+  onboarding: "onboarding",
+  signup: "signup",
   home: "home",
   signin: "account",
   search: "search",
@@ -97,9 +101,14 @@ function Traveller() {
     () =>
       current() === "home" && !location.hash && !new URLSearchParams(location.search).has("screen"),
   );
-  const finishLaunch = useCallback(() => setLaunch(false), []);
+  const finishLaunch = useCallback(() => {
+    setLaunch(false);
+    if (current() === "splash" || !localStorage.getItem("travel-onboarding-seen"))
+      move("onboarding");
+  }, []);
   const [view, setView] = useState(current),
     [email, setEmail] = useState<string | null>(null),
+    [fullName, setFullName] = useState<string | null>(null),
     [inviteOnly, setInviteOnly] = useState(false),
     [loaded, setLoaded] = useState(false);
   const [token, setToken] = useState(initialToken),
@@ -139,6 +148,7 @@ function Traveller() {
       .then((s) => {
         if (active) {
           setEmail(s.email);
+          setFullName(s.fullName ?? null);
           setInviteOnly(s.inviteOnly === true);
           if (s.inviteOnly) setToken("");
         }
@@ -167,6 +177,7 @@ function Traveller() {
     };
     const expired = () => {
       setEmail(null);
+      setFullName(null);
       setToken("");
     };
     window.addEventListener("hashchange", next);
@@ -186,7 +197,11 @@ function Traveller() {
   const tab: Tab =
     page === "requests" || kind === "trip"
       ? "trips"
-      : page === "profile" || page === "account" || page === "delete" || page === "saved"
+      : page === "profile" ||
+          page === "account" ||
+          page === "signup" ||
+          page === "delete" ||
+          page === "saved"
         ? "profile"
         : page === "support"
           ? "support"
@@ -270,9 +285,57 @@ function Traveller() {
     reset: (tab: Tab) => setTab(tab),
     openServices: (open: boolean) => dispatch({ type: "SET_SERVICES_OPEN", open }),
   };
-  const restricted = ["new", "requests", "trip", "account", "delete"].includes(kind);
+  const restricted =
+    ["new", "requests", "trip", "account", "signup", "delete"].includes(kind) ||
+    (page === "support" && params.has("signin"));
   const destination = kind === "destination" && DESTINATIONS.find((d) => d.id === arg);
   function contents() {
+    if (page === "splash") return <SplashScreen onComplete={finishLaunch} />;
+    if (page === "onboarding") {
+      const finish = (next: string) => {
+        localStorage.setItem("travel-onboarding-seen", "1");
+        move(next);
+      };
+      return (
+        <OnboardingScreen
+          initialSlide={params.get("slide") === "3" ? 2 : 0}
+          onSkip={() => finish("home")}
+          onAuth={(screen) => finish(screen === "signup" ? "signup" : "account")}
+        />
+      );
+    }
+    if (
+      restricted &&
+      loaded &&
+      !connection &&
+      (!email || ["account", "signup", "delete"].includes(page))
+    ) {
+      return (
+        <Account
+          key={view + (inviteOnly ? "" : token)}
+          email={!inviteOnly && token ? null : email}
+          token={inviteOnly ? "" : token}
+          inviteOnly={inviteOnly}
+          deleting={page === "delete"}
+          startWithSignup={page === "signup"}
+          onBack={() => {
+            if (history.state?.travelBack?.split("?")[0] === "onboarding")
+              move("onboarding?slide=3");
+            else back();
+          }}
+          toggleLang={toggleLang}
+          remove={() => move("delete")}
+          onSession={(value) => {
+            setEmail(value.email);
+            setFullName(value.fullName ?? null);
+            setToken("");
+          }}
+          onDone={() => {
+            if (["account", "signup", "delete"].includes(page)) move("home");
+          }}
+        />
+      );
+    }
     if (page === "home") return <HomeScreen traveller={email} />;
     if (page === "search") return <SearchScreen />;
     if (destination)
@@ -318,8 +381,20 @@ function Traveller() {
     if (page === "visa") return <VisaScreen />;
     if (page === "egypt") return <EgyptScreen />;
     if (page === "saved") return <SavedScreen />;
-    if (page === "profile") return <ProfileScreen account={{ email, open: move }} />;
-    if (page === "support") return <SupportScreen openRequests={() => move("requests")} />;
+    if (page === "profile") return <ProfileScreen account={{ email, fullName, open: move }} />;
+    if (page === "support")
+      return (
+        <TravelSupport
+          signedIn={Boolean(email)}
+          requestId={params.get("request") || undefined}
+          signIn={() => move("support?signin=1")}
+          newRequest={() => plan()}
+          openRequests={() => move("requests")}
+          selectRequest={(id) => move("support?" + new URLSearchParams({ request: id }))}
+          openRequest={open}
+        />
+      );
+    if (page === "requests" && email) return <RequestList onOpen={open} onNew={() => plan()} />;
     if (page === "notifications") {
       const title = t("Notifications", "الإشعارات");
       return (
@@ -368,28 +443,6 @@ function Traveller() {
                 {t("Retry", "إعادة المحاولة")}
               </button>
             </section>
-          ) : restricted && (!email || page === "account" || page === "delete") ? (
-            <>
-              <Account
-                key={view + (inviteOnly ? "" : token)}
-                email={!inviteOnly && token ? null : email}
-                token={inviteOnly ? "" : token}
-                inviteOnly={inviteOnly}
-                deleting={page === "delete"}
-                onSession={(value) => {
-                  setEmail(value);
-                  setToken("");
-                }}
-                onDone={() => {
-                  if (page === "account" || page === "delete") move("home");
-                }}
-              />
-              {email && page === "account" && (
-                <button className="text-button" onClick={() => move("delete")}>
-                  {t("Delete my account", "حذف حسابي")}
-                </button>
-              )}
-            </>
           ) : page === "new" ? (
             <RequestForm
               service={service}
@@ -401,10 +454,12 @@ function Traveller() {
               groupSize={Number(params.get("people")) || undefined}
               onOpen={open}
             />
-          ) : page === "requests" ? (
-            <RequestList onOpen={open} onNew={() => plan()} />
           ) : kind === "trip" ? (
-            <RequestDetail id={arg} back={() => move("requests")} />
+            <RequestDetail
+              id={arg}
+              back={() => move("requests")}
+              openConversation={() => move("support?" + new URLSearchParams({ request: arg }))}
+            />
           ) : (
             <button onClick={() => move("home")}>{t("Explore", "اكتشف")}</button>
           )}
@@ -441,7 +496,11 @@ function Traveller() {
                   )}
                 </main>
                 <BottomNav
-                  visible={!launch && ["home", "requests", "profile", "support"].includes(page)}
+                  visible={
+                    !launch &&
+                    ["home", "requests", "profile", "support"].includes(page) &&
+                    (!restricted || Boolean(email))
+                  }
                 />
                 <ToastHost />
               </OverlayRoot>
