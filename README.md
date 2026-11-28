@@ -64,9 +64,9 @@ Public paths for your deployed origin are /privacy, /terms and /delete-account. 
 
 ## Vercel client review deployment
 
-`Dockerfile.vercel` builds the React client and Django API into one HTTPS service. Django runs in Vercel's Frankfurt region (`fra1`) to stay close to the Supabase EU Central database; Vercel serves static assets through its global CDN. `vercel.json` schedules bounded account-email delivery every minute and expiry cleanup hourly. The generated Vercel URL can be opened on a phone browser and shared with the client. It does not install an Android or iOS package; Play internal testing and TestFlight still use the Capacitor builds described above. A custom domain is optional for the review link.
+`Dockerfile.vercel` builds the React client and Django API into one HTTPS service. Django runs in Vercel's Frankfurt region (`fra1`) to stay close to the Supabase EU Central database; Vercel serves static assets through its global CDN. `vercel.json` schedules daily expiry cleanup for the invite-only client test. The generated Vercel URL can be opened on a phone browser and shared with the client. It does not install an Android or iOS package; Play internal testing and TestFlight still use the Capacitor builds described above. A custom domain is optional for the review link.
 
-Connect the public GitHub repository to a Vercel project, select the `container` framework, and use `mobile-beta` as its production branch. Configure these server-side environment variables for Production:
+Connect the public GitHub repository to a Vercel project, select the `container` framework, and use `main` as its production branch. Configure these server-side environment variables for Production:
 
 The container marks itself as running on Vercel, and production accepts only the exact `PUBLIC_ORIGIN`. Keep this review deployment on Production. Preview deployments need their own explicit host and separate environment before they are shared; the app does not trust arbitrary `*.vercel.app` hosts.
 
@@ -76,7 +76,8 @@ The container marks itself as running on Vercel, and production accepts only the
 | `PUBLIC_ORIGIN` | Exact HTTPS production origin, such as the project's `vercel.app` URL. |
 | `DATABASE_URL` | Supabase shared transaction-pool URL on port 6543 with `pgbouncer=true`. The app forces verified TLS and disables prepared statements. |
 | `CRON_SECRET` | Random secret of at least 32 characters for Vercel's scheduled requests. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Verified transactional email sender over STARTTLS. |
+| `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image for testing with precreated accounts and no email sender. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Verified transactional email sender over STARTTLS when public account emails are enabled. |
 
 Keep `DATABASE_URL`, SMTP credentials, `DJANGO_SECRET_KEY`, and `CRON_SECRET` in Vercel's encrypted environment settings. Never expose them through `VITE_*` variables. Do not add the Supabase service-role key to this app; Django uses PostgreSQL directly and enforces the existing per-user access rules.
 
@@ -84,7 +85,9 @@ For shared Supabase pooler hosts, Django uses the bundled [Supabase Root 2021 CA
 
 For a one-off schema migration, temporarily add the Supabase session-pool URL as the Production `DIRECT_URL` secret, then run Django with `TRAVEL_MIGRATIONS=1` through `vercel env run`. This selects `DIRECT_URL` only for that command. Remove `DIRECT_URL` after the migration. Run `setup_desk` once, then create the agency's staff administrator through the production management command. Do not put schema migrations in the container startup command.
 
-Account registration and password-reset mail require the agency's verified sender credentials. Production settings intentionally refuse to start without them. Use test contact details and test travel requests during client review, and do not upload real passport or flight-ticket images until the agency has approved its privacy disclosures, access, retention, and backup arrangements.
+Invite-only mode keeps guest search and password sign-in open. In the Django staff console, create an ordinary user for each tester with their email as both username and email address. Keep staff and superuser permissions off. Use test contact details, sample ticket images, and test travel requests.
+
+Before opening public signup, configure the verified email sender, add the `/internal/cron/mail` job with schedule `* * * * *` to `vercel.json`, and set `TRAVEL_INVITE_ONLY` to `0` before redeploying. Verify account setup and password reset email delivery before sharing the public launch link.
 
 ## Search and Egypt approval
 

@@ -120,6 +120,7 @@ def session(request, data):
     return {
         "email": request.actor.email if request.actor else None,
         "csrf": None if request.native else get_token(request),
+        "inviteOnly": settings.INVITE_ONLY,
     }
 
 
@@ -166,6 +167,8 @@ def sign_out(request, data):
 
 @endpoint("POST")
 def send_link(request, data):
+    if settings.INVITE_ONLY:
+        raise Invalid("Account email is unavailable during testing.", 503)
     fields(data, ["email", "purpose"])
     email = email_address(data["email"])
     purpose = data["purpose"]
@@ -182,6 +185,8 @@ def send_link(request, data):
 
 @endpoint("POST")
 def set_password(request, data):
+    if settings.INVITE_ONLY:
+        raise Invalid("Account email is unavailable during testing.", 503)
     fields(data, ["token", "password"])
     if not allowance("redeem", remote(request), 15, 600):
         slow_error()

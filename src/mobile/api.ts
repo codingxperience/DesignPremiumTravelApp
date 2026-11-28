@@ -5,7 +5,12 @@ const origin = import.meta.env.VITE_TRAVEL_ORIGIN as string | undefined;
 const base = native ? (origin || "") + "/mobile/" : "/api/";
 let bearer = "";
 let csrf = "";
-export type Session = { email: string | null; csrf?: string; token?: string };
+export type Session = {
+  email: string | null;
+  csrf?: string;
+  token?: string;
+  inviteOnly?: boolean;
+};
 export type Service = "flight" | "hotel" | "holiday" | "visa" | "umrah" | "egypt" | "approval";
 export type Trip = {
   id: string;
@@ -47,6 +52,8 @@ function responseMessage(status: number, message?: string) {
   const translations: Record<string, string> = {
     "Check your email and password.": "تحقق من بريدك الإلكتروني وكلمة المرور.",
     "Check your current password.": "تحقق من كلمة المرور الحالية.",
+    "Account email is unavailable during testing.":
+      "خدمات البريد الإلكتروني للحساب غير متاحة أثناء الاختبار.",
     "This link has expired or has already been used.":
       "انتهت صلاحية الرابط أو سبق استخدامه. اطلب رابطاً جديداً.",
     "The quote has expired.": "انتهت صلاحية عرض السعر.",

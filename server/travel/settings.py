@@ -11,6 +11,7 @@ from .deployment import deployment_security_settings, validate_smtp_settings
 BASE = Path(__file__).resolve().parents[1]
 LOCAL = os.environ.get("TRAVEL_ENV") == "local"
 VERCEL = os.environ.get("VERCEL") == "1"
+INVITE_ONLY = os.environ.get("TRAVEL_INVITE_ONLY") == "1"
 CRON_SECRET = os.environ.get("CRON_SECRET", "")
 if VERCEL and len(CRON_SECRET) < 32:
     raise ImproperlyConfigured("Set CRON_SECRET to at least 32 random characters.")
@@ -201,7 +202,7 @@ EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
 EMAIL_USE_TLS = True
 EMAIL_TIMEOUT = 8
 DEFAULT_FROM_EMAIL = os.environ.get("MAIL_FROM", "travel@localhost" if LOCAL else "")
-if not LOCAL:
+if not LOCAL and not INVITE_ONLY:
     try:
         validate_smtp_settings(
             EMAIL_HOST,

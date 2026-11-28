@@ -9,12 +9,14 @@ export function Account({
   email,
   onSession,
   token,
+  inviteOnly,
   deleting,
   onDone,
 }: {
   email: string | null;
   onSession: (email: string | null) => void;
   token: string;
+  inviteOnly: boolean;
   deleting: boolean;
   onDone: () => void;
 }) {
@@ -92,10 +94,15 @@ export function Account({
       <h1>{title}</h1>
       {!email && mode === "login" && (
         <p>
-          {t(
-            "Sign in to manage your bookings, visas and trips.",
-            "سجّل الدخول لإدارة حجوزاتك وتأشيراتك ورحلاتك.",
-          )}
+          {inviteOnly
+            ? t(
+                "Sign in with the email and password provided by the travel desk.",
+                "سجّل الدخول بالبريد الإلكتروني وكلمة المرور اللذين حصلت عليهما من مكتب السفر.",
+              )
+            : t(
+                "Sign in to manage your bookings, visas and trips.",
+                "سجّل الدخول لإدارة حجوزاتك وتأشيراتك ورحلاتك.",
+              )}
         </p>
       )}
       {deleting && (
@@ -175,7 +182,7 @@ export function Account({
           {notice}
         </p>
       )}
-      {!email && (
+      {!email && !inviteOnly && (
         <div className="links">
           {mode !== "login" && (
             <button onClick={() => change("login")}>{t("Sign in", "تسجيل الدخول")}</button>

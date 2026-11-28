@@ -100,6 +100,7 @@ function Traveller() {
   const finishLaunch = useCallback(() => setLaunch(false), []);
   const [view, setView] = useState(current),
     [email, setEmail] = useState<string | null>(null),
+    [inviteOnly, setInviteOnly] = useState(false),
     [loaded, setLoaded] = useState(false);
   const [token, setToken] = useState(initialToken),
     [connection, setConnection] = useState(""),
@@ -136,7 +137,11 @@ function Traveller() {
     setConnection("");
     loadSession()
       .then((s) => {
-        if (active) setEmail(s.email);
+        if (active) {
+          setEmail(s.email);
+          setInviteOnly(s.inviteOnly === true);
+          if (s.inviteOnly) setToken("");
+        }
       })
       .catch((e) => {
         if (active) setConnection(e.message);
@@ -366,9 +371,10 @@ function Traveller() {
           ) : restricted && (!email || page === "account" || page === "delete") ? (
             <>
               <Account
-                key={view + token}
-                email={token ? null : email}
-                token={token}
+                key={view + (inviteOnly ? "" : token)}
+                email={!inviteOnly && token ? null : email}
+                token={inviteOnly ? "" : token}
+                inviteOnly={inviteOnly}
                 deleting={page === "delete"}
                 onSession={(value) => {
                   setEmail(value);
