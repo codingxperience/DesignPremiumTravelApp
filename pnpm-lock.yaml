@@ -44,10 +44,10 @@ importers:
         version: 8.6.2
       '@tailwindcss/vite':
         specifier: ^4.0.0
-        version: 4.2.2(vite@8.3.8(@types/node@22.19.17)(jiti@2.6.1))
+        version: 4.2.2(vite@8.3.8(@types/node@26.6.7)(jiti@2.6.1))
       '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.17
+        specifier: ^26.6.7
+        version: 26.6.7
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -56,7 +56,7 @@ importers:
         version: 19.2.3(@types/react@19.2.14)
       '@vitejs/plugin-react':
         specifier: ^6.0.0
-        version: 6.0.1(vite@8.3.8(@types/node@22.19.17)(jiti@2.6.1))
+        version: 6.0.1(vite@8.3.8(@types/node@26.6.7)(jiti@2.6.1))
       oxfmt:
         specifier: ^0.76.0
         version: 0.76.0
@@ -71,7 +71,7 @@ importers:
         version: 5.9.3
       vite:
         specifier: ^8.3.8
-        version: 8.3.8(@types/node@22.19.17)(jiti@2.6.1)
+        version: 8.3.8(@types/node@26.6.7)(jiti@2.6.1)
 
 packages:
 
@@ -506,8 +506,8 @@ packages:
   '@types/fs-extra@8.1.5':
     resolution: {integrity: sha512-0dzKcwO+S8s2kuF5Z9oUWatQJj5Uq/iqphEtE3GQJVRRYm/tD1LglU2UnXi2A8jLq5umkGouOXOR9y0n613ZwQ==}
 
-  '@types/node@22.19.17':
-    resolution: {integrity: sha512-wGdMcf+vPYM6jikpS/qhg6WiqSV/OhG+jeeHT/KlVqxYfD40iYJf9/AE1uQxVWFvU7MipKRkRv8NSHiCGgPr8Q==}
+  '@types/node@26.6.7':
+    resolution: {integrity: sha512-tovuRfrUILu6v46bMG+BgXxMvsqPBx2WO2as8Rpln+JTff1dbexMtAM4KFTejmL0axsnSWViCW7MecUQpLuBRA==}
 
   '@types/react-dom@19.2.3':
     resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
@@ -1118,8 +1118,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -1552,12 +1552,12 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.2.2
       '@tailwindcss/oxide-win32-x64-msvc': 4.2.2
 
-  '@tailwindcss/vite@4.2.2(vite@8.3.8(@types/node@22.19.17)(jiti@2.6.1))':
+  '@tailwindcss/vite@4.2.2(vite@8.3.8(@types/node@26.6.7)(jiti@2.6.1))':
     dependencies:
       '@tailwindcss/node': 4.2.2
       '@tailwindcss/oxide': 4.2.2
       tailwindcss: 4.2.2
-      vite: 8.3.8(@types/node@22.19.17)(jiti@2.6.1)
+      vite: 8.3.8(@types/node@26.6.7)(jiti@2.6.1)
 
   '@tybys/wasm-util@0.10.5':
     dependencies:
@@ -1566,11 +1566,11 @@ snapshots:
 
   '@types/fs-extra@8.1.5':
     dependencies:
-      '@types/node': 22.19.17
+      '@types/node': 26.6.7
 
-  '@types/node@22.19.17':
+  '@types/node@26.6.7':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 8.9.0
 
   '@types/react-dom@19.2.3(@types/react@19.2.14)':
     dependencies:
@@ -1582,10 +1582,10 @@ snapshots:
 
   '@types/slice-ansi@4.0.0': {}
 
-  '@vitejs/plugin-react@6.0.1(vite@8.3.8(@types/node@22.19.17)(jiti@2.6.1))':
+  '@vitejs/plugin-react@6.0.1(vite@8.3.8(@types/node@26.6.7)(jiti@2.6.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-rc.7
-      vite: 8.3.8(@types/node@22.19.17)(jiti@2.6.1)
+      vite: 8.3.8(@types/node@26.6.7)(jiti@2.6.1)
 
   '@xmldom/xmldom@0.9.12': {}
 
@@ -2077,7 +2077,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-types@6.21.0: {}
+  undici-types@8.9.0: {}
 
   universalify@2.0.1: {}
 
@@ -2085,7 +2085,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vite@8.3.8(@types/node@22.19.17)(jiti@2.6.1):
+  vite@8.3.8(@types/node@26.6.7)(jiti@2.6.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -2093,7 +2093,7 @@ snapshots:
       rolldown: 1.2.19
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 22.19.17
+      '@types/node': 26.6.7
       fsevents: 2.3.3
       jiti: 2.6.1
 
