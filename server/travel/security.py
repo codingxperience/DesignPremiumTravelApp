@@ -99,6 +99,9 @@ class Boundaries:
             ("/api/", "/mobile/", "/staff/", "/internal/cron/")
         ):
             response["Cache-Control"] = "no-store"
+        if request.path.startswith("/staff/"):
+            # Preserve same-origin request metadata for Django's CSRF checks.
+            response["Referrer-Policy"] = "same-origin"
         response["Permissions-Policy"] = (
             "geolocation=(), camera=(), microphone=(), payment=()"
         )

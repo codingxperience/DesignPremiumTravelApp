@@ -126,6 +126,11 @@ class DeploymentBoundaryTests(SimpleTestCase):
                         vercel=True,
                     )
 
+    def test_staff_form_preserves_same_origin_for_csrf(self):
+        response = self.client.get("/staff/login/", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["Referrer-Policy"], "same-origin")
+
     def test_production_mail_requires_authenticated_sender_credentials(self):
         with self.assertRaisesRegex(ValueError, "SMTP_HOST.*SMTP_USER.*SMTP_PASSWORD.*MAIL_FROM"):
             validate_smtp_settings("smtp.example.test", "", "", "desk@example.test")
