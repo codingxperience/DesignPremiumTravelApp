@@ -1,7 +1,7 @@
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, KeyRound, LockKeyhole, Mail } from "lucide-react";
 import { TextField } from "@/ui/Field";
 import { useState, type FormEvent } from "react";
-import { api, clearSession, remember, type Session } from "./api";
+import { api, ApiError, clearSession, remember, type Session } from "./api";
 import { useText } from "./ui";
 
 type Mode = "login" | "register" | "reset" | "setup";
@@ -23,6 +23,8 @@ export function Account({
   const t = useText();
   const [visible, setVisible] = useState(false);
   const [mode, setMode] = useState<Mode>(token ? "setup" : "login");
+  const activating = inviteOnly && mode === "register";
+  const choosingPassword = activating || mode === "setup";
   const [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
     [error, setError] = useState("");
@@ -48,8 +50,14 @@ export function Account({
         clearSession();
         onSession(null);
         onDone();
-      } else if (mode === "login") {
-        const session = await api<Session>("login", { email: address, password });
+      } else if (mode === "login" || activating) {
+        const session = activating
+          ? await api<Session>("activate", {
+              email: address,
+              code: String(data.get("code") || "").trim(),
+              password,
+            })
+          : await api<Session>("login", { email: address, password });
         remember(session);
         onSession(session.email);
         if (!deleting) onDone();
@@ -73,7 +81,21 @@ export function Account({
         );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("Please try again.", "حاول مجدداً."));
+      if (!email && mode === "login" && e instanceof ApiError && e.status === 401) {
+        setError(
+          inviteOnly
+            ? t(
+                "Sign-in failed. Check your email and password. If you have an invite code, choose Create an account below.",
+                "تعذّر تسجيل الدخول. تحقّق من بريدك الإلكتروني وكلمة المرور. إذا كان لديك رمز دعوة، اختر إنشاء حساب أدناه.",
+              )
+            : t(
+                "Sign-in failed. Check your email and password, or choose Forgot password below.",
+                "تعذّر تسجيل الدخول. تحقّق من بريدك الإلكتروني وكلمة المرور، أو اختر نسيت كلمة المرور أدناه.",
+              ),
+        );
+      } else {
+        setError(e instanceof Error ? e.message : t("Please try again.", "حاول مجدداً."));
+      }
     } finally {
       setBusy(false);
     }
@@ -96,13 +118,21 @@ export function Account({
         <p>
           {inviteOnly
             ? t(
-                "Sign in with the email and password provided by the travel desk.",
-                "سجّل الدخول بالبريد الإلكتروني وكلمة المرور اللذين حصلت عليهما من مكتب السفر.",
+                "Use your account email and password. If this is your first visit and you have an invite code, create an account below.",
+                "استخدم بريد حسابك وكلمة المرور. إذا كانت هذه زيارتك الأولى ولديك رمز دعوة، أنشئ حساباً أدناه.",
               )
             : t(
                 "Sign in to manage your bookings, visas and trips.",
                 "سجّل الدخول لإدارة حجوزاتك وتأشيراتك ورحلاتك.",
               )}
+        </p>
+      )}
+      {!email && activating && (
+        <p>
+          {t(
+            "Enter the email you gave the travel desk and the invite code they shared. Then choose your password.",
+            "أدخل البريد الإلكتروني الذي أعطيته لمكتب السفر ورمز الدعوة الذي أرسله إليك، ثم اختر كلمة مرور.",
+          )}
         </p>
       )}
       {deleting && (
@@ -121,24 +151,38 @@ export function Account({
             icon={<Mail />}
             name="email"
             type="email"
-            autoComplete="email"
+            autoComplete={mode === "login" || activating ? "username" : "email"}
+            autoCapitalize="none"
             required
             maxLength={150}
             ltr
           />
         )}
-        {(email ? deleting : mode === "login" || mode === "setup") && (
+        {!email && activating && (
+          <TextField
+            label={t("Invite code", "رمز الدعوة")}
+            icon={<KeyRound />}
+            name="code"
+            autoComplete="one-time-code"
+            autoCapitalize="none"
+            spellCheck={false}
+            maxLength={100}
+            required
+            ltr
+          />
+        )}
+        {(email ? deleting : mode === "login" || choosingPassword) && (
           <TextField
             label={t("Password", "كلمة المرور")}
             icon={<LockKeyhole />}
             name="password"
             type={visible ? "text" : "password"}
-            autoComplete={mode === "setup" ? "new-password" : "current-password"}
-            minLength={mode === "setup" ? 12 : 1}
+            autoComplete={choosingPassword ? "new-password" : "current-password"}
+            minLength={choosingPassword ? 12 : 1}
             maxLength={256}
             required
             hint={
-              mode === "setup"
+              choosingPassword
                 ? t("Use at least 12 characters.", "استخدم ١٢ حرفاً على الأقل.")
                 : undefined
             }
@@ -165,7 +209,7 @@ export function Account({
               ? deleting
                 ? title
                 : t("Sign out", "تسجيل الخروج")
-              : mode === "login"
+              : mode === "login" || activating
                 ? title
                 : mode === "setup"
                   ? t("Save password", "حفظ كلمة المرور")
@@ -182,22 +226,34 @@ export function Account({
           {notice}
         </p>
       )}
-      {!email && !inviteOnly && (
+      {!email && (
         <div className="links">
           {mode !== "login" && (
-            <button onClick={() => change("login")}>{t("Sign in", "تسجيل الدخول")}</button>
+            <button type="button" disabled={busy} onClick={() => change("login")}>
+              {t("Back to sign in", "العودة إلى تسجيل الدخول")}
+            </button>
           )}
           {mode === "login" && (
             <>
-              <button onClick={() => change("register")}>
+              <button type="button" disabled={busy} onClick={() => change("register")}>
                 {t("Create an account", "إنشاء حساب")}
               </button>
-              <button onClick={() => change("reset")}>
-                {t("Forgot password?", "نسيت كلمة المرور؟")}
-              </button>
+              {!inviteOnly && (
+                <button type="button" disabled={busy} onClick={() => change("reset")}>
+                  {t("Forgot password?", "نسيت كلمة المرور؟")}
+                </button>
+              )}
             </>
           )}
         </div>
+      )}
+      {!email && inviteOnly && mode === "login" && (
+        <p className="muted">
+          {t(
+            "Contact the travel desk if you need an invite code or help with your password.",
+            "تواصل مع مكتب السفر إذا كنت بحاجة إلى رمز دعوة أو مساعدة في كلمة المرور.",
+          )}
+        </p>
       )}
     </section>
   );

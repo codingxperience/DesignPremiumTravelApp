@@ -1,7 +1,7 @@
 import re
 import secrets
 from datetime import timedelta
-from io import BytesIO
+from io import BytesIO, StringIO
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -293,6 +293,69 @@ class TravelTests(TestCase):
                     200,
                 )
         self.assertFalse(EmailDelivery.objects.exists())
+
+    @override_settings(INVITE_ONLY=True)
+    def test_invite_can_create_and_sign_in_once_on_web_and_device(self):
+        for prefix in ("/api", "/mobile"):
+            with self.subTest(prefix=prefix):
+                address = f"{prefix[1:]}-reviewer@example.test"
+                output = StringIO()
+                call_command("issue_invite", address, stdout=output)
+                code = output.getvalue().strip()
+                self.assertTrue(EmailLink.objects.filter(email=address, digest=digest(code)).exists())
+                device = Client(enforce_csrf_checks=True)
+                origin = "https://localhost" if prefix == "/mobile" else "http://testserver"
+                headers = {"HTTP_ORIGIN": origin}
+                if prefix == "/api":
+                    headers["HTTP_X_CSRFTOKEN"] = device.get("/api/session").json()["csrf"]
+                password = secrets.token_urlsafe(24)
+                payload = {"email": address, "code": code, "password": password}
+
+                def activate(values):
+                    return self.post(f"{prefix}/activate", values, device, **headers)
+
+                unrelated = activate(payload | {"email": "elsewhere@example.test"})
+                self.assertEqual(unrelated.status_code, 400)
+                weak = activate(payload | {"password": "short"})
+                self.assertEqual(weak.json()["error"], "Use at least 12 characters for your password.")
+                self.assertFalse(get_user_model().objects.filter(username=address).exists())
+
+                result = activate(payload)
+                self.assertEqual(result.status_code, 200, result.content)
+                self.assertEqual(result.json()["email"], address)
+                user = get_user_model().objects.get(username=address)
+                self.assertTrue(user.check_password(password))
+                self.assertFalse(user.is_staff)
+                self.assertFalse(EmailLink.objects.filter(email=address).exists())
+
+                if prefix == "/api":
+                    headers["HTTP_X_CSRFTOKEN"] = result.json()["csrf"]
+                else:
+                    headers["HTTP_AUTHORIZATION"] = "Bearer " + result.json()["token"]
+                self.assertEqual(device.get(f"{prefix}/trips", **headers).status_code, 200)
+                self.assertEqual(activate(payload).json(), unrelated.json())
+
+    @override_settings(INVITE_ONLY=True)
+    def test_invite_cannot_replace_password_or_accept_expired_code(self):
+        client = Client()
+        code = secrets.token_urlsafe(24)
+        password = secrets.token_urlsafe(24)
+        for address, expiry in (
+            (self.user.email, timezone.now() + timedelta(hours=1)),
+            ("expired@example.test", timezone.now() - timedelta(seconds=1)),
+        ):
+            EmailLink.objects.create(
+                email=address, digest=digest(code), purpose="invite", expires=expiry
+            )
+            result = self.post(
+                "/mobile/activate", {"email": address, "code": code, "password": password}, client
+            )
+            self.assertEqual(result.status_code, 400)
+            self.assertIn("ask the travel desk for a new invite", result.json()["error"])
+            EmailLink.objects.get(email=address).delete()
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password(self.secret))
+        self.assertFalse(get_user_model().objects.filter(username="expired@example.test").exists())
 
     def test_device_channel_ignores_browser_credentials(self):
         self.assertEqual(self.client.get("/mobile/trips").status_code, 403)

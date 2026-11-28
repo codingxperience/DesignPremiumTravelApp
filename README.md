@@ -76,7 +76,7 @@ The container marks itself as running on Vercel, and production accepts only the
 | `PUBLIC_ORIGIN` | Exact HTTPS production origin, such as the project's `vercel.app` URL. |
 | `DATABASE_URL` | Supabase shared transaction-pool URL on port 6543 with `pgbouncer=true`. The app forces verified TLS and disables prepared statements. |
 | `CRON_SECRET` | Random secret of at least 32 characters for Vercel's scheduled requests. |
-| `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image for testing with precreated accounts and no email sender. |
+| `TRAVEL_INVITE_ONLY` | Defaults to `1` in the Vercel image. Testers create accounts with an invite code and can sign in without an email sender. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `MAIL_FROM` | Verified transactional email sender over STARTTLS when public account emails are enabled. |
 
 Keep `DATABASE_URL`, SMTP credentials, `DJANGO_SECRET_KEY`, and `CRON_SECRET` in Vercel's encrypted environment settings. Never expose them through `VITE_*` variables. Do not add the Supabase service-role key to this app; Django uses PostgreSQL directly and enforces the existing per-user access rules.
@@ -85,7 +85,7 @@ For shared Supabase pooler hosts, Django uses the bundled [Supabase Root 2021 CA
 
 For a one-off schema migration, temporarily add the Supabase session-pool URL as the Production `DIRECT_URL` secret, then run Django with `TRAVEL_MIGRATIONS=1` through `vercel env run`. This selects `DIRECT_URL` only for that command. Remove `DIRECT_URL` after the migration. Run `setup_desk` once, then create the agency's staff administrator through the production management command. Do not put schema migrations in the container startup command.
 
-Invite-only mode keeps guest search and password sign-in open. In the Django staff console, create an ordinary user for each tester with their email as both username and email address. Keep staff and superuser permissions off. Use test contact details, sample ticket images, and test travel requests.
+Invite-only mode keeps guest search and password sign-in open. With the review environment variables set, run `python server/manage.py issue_invite tester@example.com` and give the tester the code privately. Select **Create an account**, enter the invitation email and code, and choose a password. The code expires after 24 hours or its first successful use. Issuing a new code replaces the previous one for that email. Existing testers can sign in with their current password.
 
 Before opening public signup, configure the verified email sender, add the `/internal/cron/mail` job with schedule `* * * * *` to `vercel.json`, and set `TRAVEL_INVITE_ONLY` to `0` before redeploying. Verify account setup and password reset email delivery before sharing the public launch link.
 
