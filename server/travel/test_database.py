@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 from travel.database import database_config_from_url, selected_database_url
 
@@ -18,7 +19,23 @@ class DatabaseConfigTests(unittest.TestCase):
         self.assertEqual(config["CONN_MAX_AGE"], 0)
         self.assertIsNone(config["OPTIONS"]["prepare_threshold"])
         self.assertEqual(config["OPTIONS"]["sslmode"], "verify-full")
+        self.assertEqual(
+            config["OPTIONS"]["sslrootcert"], "/etc/ssl/certs/ca-certificates.crt"
+        )
         self.assertNotIn("pgbouncer", config["OPTIONS"])
+
+    def test_supabase_poolers_use_the_bundled_ca_in_both_modes(self):
+        expected = Path(__file__).with_name("certs") / "supabase-root-2021.crt"
+        self.assertIn("-----BEGIN CERTIFICATE-----", expected.read_text(encoding="ascii"))
+
+        for port, serverless in ((6543, True), (5432, False)):
+            with self.subTest(port=port):
+                config = database_config_from_url(
+                    f"postgresql://user:password@aws-0-eu-central-1.pooler.supabase.com:{port}/postgres",
+                    sslmode="verify-full",
+                    serverless=serverless,
+                )
+                self.assertEqual(config["OPTIONS"]["sslrootcert"], str(expected))
 
     def test_percent_encoded_credentials_and_database_name_are_decoded(self):
         config = database_config_from_url(
