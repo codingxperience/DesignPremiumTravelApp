@@ -17,14 +17,25 @@ const SLIDES: { image: string; kicker: TKey; title: TKey; body: TKey }[] = [
   { image: PHOTOS.kaaba, kicker: 'onb.3.kicker', title: 'onb.3.title', body: 'onb.3.body' },
 ]
 
-export function OnboardingScreen() {
-  const [index, setIndex] = useState(0)
+export function OnboardingScreen({ initialSlide = 0, onAuth, onSkip }: {
+  initialSlide?: number
+  onAuth?: (screen: 'signin' | 'signup') => void
+  onSkip?: () => void
+} = {}) {
+  const [index, setIndex] = useState(initialSlide)
   const dispatch = useDispatch()
   const { t, isRtl } = useI18n()
   const slide = SLIDES[index]
   const last = index === SLIDES.length - 1
 
-  const toAuth = (screen: 'signin' | 'signup') => dispatch({ type: 'AUTH_GO', screen, dir: 1 })
+  const toAuth = (screen: 'signin' | 'signup') => {
+    if (onAuth) onAuth(screen)
+    else dispatch({ type: 'AUTH_GO', screen, dir: 1 })
+  }
+  const skip = () => {
+    if (onSkip) onSkip()
+    else dispatch({ type: 'SET_PHASE', phase: 'app' })
+  }
   const go = (next: number) => setIndex(Math.min(SLIDES.length - 1, Math.max(0, next)))
 
   return (
@@ -60,7 +71,7 @@ export function OnboardingScreen() {
       <div className="absolute inset-x-0 top-[calc(var(--sat)+8px)] flex items-center justify-between px-6">
         <LogoMark className="h-7 w-auto" title={t('brand.full')} />
         {!last && (
-          <button type="button" onClick={() => dispatch({ type: 'SET_PHASE', phase: 'app' })} className="glass-dark h-9 rounded-full px-4 text-[13px] font-semibold text-white">
+          <button type="button" onClick={skip} className="glass-dark h-9 rounded-full px-4 text-[13px] font-semibold text-white">
             {t('onb.skip')}
           </button>
         )}

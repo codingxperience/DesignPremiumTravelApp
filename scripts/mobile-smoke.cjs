@@ -34,6 +34,19 @@ const fs = require("node:fs/promises"),
       (await page.request.get(origin + "/brand/splash/cross-world-intro.mp4")).status(),
       200,
     );
+    await page.getByRole("heading", { name: "The world, booked in minutes." }).waitFor();
+    const carousel = page.locator('[aria-roledescription="carousel"]');
+    await carousel.locator("img").last().evaluate((image) => image.decode());
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("heading", { name: "Your paperwork, handled." }).waitFor();
+    await carousel.locator("img").last().evaluate((image) => image.decode());
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("heading", { name: "Sacred journeys, with care." }).waitFor();
+    await carousel.locator("img").last().evaluate((image) => image.decode());
+    await page.getByRole("button", { name: "Get started", exact: true }).click();
+    await page.getByRole("heading", { name: "Create your account", exact: true }).waitFor();
+    await page.goto(origin + "/#onboarding");
+    await page.getByRole("button", { name: "Skip", exact: true }).click();
     await page.getByRole("heading", { name: "Where to next?" }).waitFor();
     await page
       .getByAltText("Cairo & Giza", { exact: true })
@@ -81,7 +94,7 @@ const fs = require("node:fs/promises"),
       .getByRole("combobox", { name: "Departure time", exact: true })
       .selectOption("evening");
     await page.getByRole("button", { name: "Request flight quote" }).click();
-    await page.getByRole("heading", { name: "Sign in" }).waitFor();
+    await page.getByRole("heading", { name: "Welcome back" }).waitFor();
     await page.goto(origin + "/#hotels");
     await page.getByRole("button", { name: /Guests/ }).click();
     await page
@@ -104,11 +117,11 @@ const fs = require("node:fs/promises"),
     await page.getByRole("button", { name: "Explore", exact: true }).click();
     await page.getByRole("button", { name: "Explore Cairo & Giza", exact: true }).click();
     await page.getByRole("button", { name: "Plan this journey" }).click();
-    await page.getByRole("button", { name: "Create an account" }).click();
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
     await page.getByLabel("Email address").fill(email);
-    await page.getByRole("button", { name: "Send email link" }).click();
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
     await page.getByRole("status").filter({ hasText: "30 minutes" }).waitFor();
-    const mailDir = path.resolve("server/.mail");
+    const mailDir = process.env.SMOKE_MAIL_DIR || path.resolve("server/.mail");
     let token;
     const { execFileSync } = require("node:child_process");
     execFileSync(process.env.SMOKE_PYTHON || "python", ["server/manage.py", "deliver_mail"], {
@@ -162,7 +175,8 @@ const fs = require("node:fs/promises"),
       .fill(new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: "Send travel request" }).click();
     await page.getByText("Request received").waitFor();
-    await page.getByLabel("Message", { exact: true }).fill("Is the itinerary flexible?");
+    await page.getByRole("button", { name: "Message the travel desk" }).click();
+    await page.getByLabel("Type a message", { exact: false }).fill("Is the itinerary flexible?");
     await page.getByRole("button", { name: "Send message" }).click();
     await page.getByText("Is the itinerary flexible?", { exact: true }).waitFor();
     await page.reload();

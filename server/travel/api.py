@@ -1,5 +1,6 @@
 import hmac
 import json
+import re
 import secrets
 from datetime import timedelta
 from functools import wraps
@@ -26,6 +27,7 @@ from .models import (
     EmailLink,
     Message,
     Quote,
+    TravellerProfile,
     Trip,
 )
 from .security import allowance, digest, remote
@@ -64,6 +66,10 @@ def email_address(value):
 
 def account_exists(email):
     return User.objects.filter(Q(username__iexact=email) | Q(email__iexact=email)).exists()
+
+
+def traveller_name(user):
+    return TravellerProfile.objects.filter(user=user).values_list("full_name", flat=True).first()
 
 
 def endpoint(method, private=False, upload=False):
@@ -127,6 +133,7 @@ def endpoint(method, private=False, upload=False):
 def session(request, data):
     return {
         "email": request.actor.email if request.actor else None,
+        "fullName": traveller_name(request.actor) if request.actor else None,
         "csrf": None if request.native else get_token(request),
         "inviteOnly": settings.INVITE_ONLY,
     }
@@ -148,6 +155,7 @@ def sign_in(request, data):
 
 
 def start_session(request, user):
+    account = {"email": user.email, "fullName": traveller_name(user)}
     if request.native:
         token = secrets.token_urlsafe(32)
         DeviceSession.objects.create(
@@ -156,16 +164,18 @@ def start_session(request, user):
             auth_hash=user.get_session_auth_hash(),
             expires=timezone.now() + timedelta(seconds=settings.SESSION_COOKIE_AGE),
         )
-        return {"email": user.email, "token": token}
+        return {**account, "token": token}
     login(request, user)
-    return {"email": user.email, "csrf": get_token(request)}
+    return {**account, "csrf": get_token(request)}
 
 
 @endpoint("POST")
 def activate_invite(request, data):
     if not settings.INVITE_ONLY:
         raise Invalid("Use the email link to create your account.", 403)
-    fields(data, ["email", "code", "password"])
+    required = {"email", "code", "password"}
+    profile_fields = {"fullName", "phone", "acceptedTerms"}
+    fields(data, required | profile_fields if profile_fields & data.keys() else required)
     if not allowance("redeem", remote(request), 15, 600):
         slow_error()
 
@@ -177,6 +187,21 @@ def activate_invite(request, data):
     password = data["password"]
     if not isinstance(password, str) or len(password) > 256:
         raise Invalid("Password must be at most 256 characters.")
+
+    profile = None
+    if profile_fields <= data.keys():
+        try:
+            name = text(data["fullName"], 2, 150)
+        except Invalid as error:
+            raise Invalid("Enter your full name.") from error
+        if any(character in name for character in "\r\n"):
+            raise Invalid("Enter your full name.")
+        phone = data["phone"]
+        if not isinstance(phone, str) or not re.fullmatch(r"\+[1-9][0-9]{6,14}", phone):
+            raise Invalid("Enter a valid mobile number with its country calling code.")
+        if data["acceptedTerms"] is not True:
+            raise Invalid("Accept the Terms of Service and Privacy Policy to continue.")
+        profile = {"full_name": name, "phone": phone, "terms_accepted_at": timezone.now()}
 
     unavailable = "That invite could not be used. Check the email and code or ask the travel desk for a new invite."
     with transaction.atomic():
@@ -204,6 +229,8 @@ def activate_invite(request, data):
         )
         if not created:
             raise Invalid(unavailable)
+        if profile:
+            TravellerProfile.objects.create(user=user, **profile)
         invitation.delete()
         return start_session(request, user)
 

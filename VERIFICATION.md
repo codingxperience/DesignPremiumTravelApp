@@ -1,5 +1,16 @@
 # Cross World Travel · Engineering verification
 
+## Demo-to-live screen review
+
+| Demo screens | Live implementation |
+| --- | --- |
+| Splash, onboarding, sign-in and signup | The branded launch hands off to the original three slides. Skip opens Explore. The last slide opens account creation or sign-in. The original account layout presents the live form and uses the travel desk’s invite code for account verification. Apple and Google controls are visible and disabled during invite-only testing. |
+| Explore, search, destination and service launcher | These use the original components with guest navigation enabled. Notifications open the traveller’s actual request list for agency updates. |
+| Flights, hotels, holidays, Umrah and Hajj, visas and Egypt approval | The service catalogue uses the original screens. Live flight results come from published routes and use the real multi-city and filter forms. Hotel requests include room counts. Egypt approval uses the agency eligibility list and requires a flight ticket. |
+| Trips, request detail and support | Trips use the original upcoming and past layout with date-filtered requests. The detail screen shows the real quote and booking state. Support uses the original chat layout, with private request selection, live messages, history, quick replies and the actual request status. Call and WhatsApp use the agency contact details. |
+| Profile, saved places and legal pages | The shared profile and saved screens use the actual account and preferences. The policy pages describe the live collection and account deletion. |
+| Prototype-only details | The demo’s simulated fares, seat maps, checkout, payment methods, issued tickets, staff presence, document vault and voice recording do not have a live provider or workflow configured. |
+
 20 November 2026 · Android, iOS and browser client · private repository checkout
 
 ## Service updates verified on 23 November 2026

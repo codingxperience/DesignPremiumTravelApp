@@ -26,6 +26,13 @@ class DeviceSession(models.Model):
     expires = models.DateTimeField(db_index=True)
 
 
+class TravellerProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, primary_key=True, on_delete=models.CASCADE)
+    full_name = models.CharField(max_length=150)
+    phone = models.CharField(max_length=16)
+    terms_accepted_at = models.DateTimeField()
+
+
 class Trip(models.Model):
     SERVICES = [
         (s, s.title())

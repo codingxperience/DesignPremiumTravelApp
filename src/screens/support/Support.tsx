@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Check, CheckCheck, Clock3, Mic, Paperclip, Phone, SendHorizontal } from 'lucide-react'
 import { LogoMark } from '@/brand/Logo'
 import { CONTACT } from '@/data/demo'
@@ -9,7 +9,7 @@ import { PHOTOS } from '@/lib/images'
 import type { TKey } from '@/lib/i18n'
 import type { NavStyle } from '@/state/routes'
 import { useAppState, useDispatch, useI18n, useNav, useToast } from '@/state/store'
-import { IconButton } from '@/ui/Button'
+import { Button, IconButton } from '@/ui/Button'
 import { Flag } from '@/ui/Flag'
 import { WhatsAppIcon } from '@/ui/Icons'
 import { EASE_OUT, FLIP_RTL } from '@/ui/motion'
@@ -106,51 +106,79 @@ function Typing() {
   )
 }
 
-export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
+type LiveConversation = {
+  messages: ChatMessage[]
+  controls?: ReactNode
+  empty?: string
+  action?: { label: string; run: () => void }
+  send?: (body: string) => Promise<void>
+  attach?: () => void
+}
+
+export function SupportScreen({ live }: { live?: LiveConversation } = {}) {
   const { t, L } = useI18n()
   const { chat, agentTyping, tab, stack, navStyle } = useAppState()
   const dispatch = useDispatch()
   const toast = useToast()
   const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
   const scroller = useRef<HTMLDivElement>(null)
+  const messages = live?.messages ?? chat
+  const typing = !live && agentTyping
+  const tail = messages.at(-1)?.id
   const visible = tab === 'support' && stack.length === 0
   const clearance = NAV_CLEARANCE[navStyle]
 
   useEffect(() => {
-    if (visible) dispatch({ type: 'CHAT_SEEN' })
-  }, [visible, chat.length, dispatch])
+    if (visible && !live) dispatch({ type: 'CHAT_SEEN' })
+  }, [visible, live, chat.length, dispatch])
 
   useEffect(() => {
     const element = scroller.current
     if (element) element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' })
-  }, [chat.length, agentTyping, visible])
+  }, [tail, typing, visible])
 
-  const send = (value: string) => {
+  const send = async (value: string) => {
     const message = value.trim()
-    if (!message) return
-    dispatch({ type: 'CHAT_SEND', text: message })
-    setText('')
+    if (!message || sending) return
+    if (!live) {
+      dispatch({ type: 'CHAT_SEND', text: message })
+      setText((draft) => draft.trim() === message ? '' : draft)
+      return
+    }
+    if (!live.send) return
+    setSending(true)
+    setError('')
+    try {
+      await live.send(message)
+      setText((draft) => draft.trim() === message ? '' : draft)
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : L({ en: 'Could not send. Try again.', ar: 'تعذّر الإرسال. حاول مجدداً.' }))
+    } finally {
+      setSending(false)
+    }
   }
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    send(text)
+    void send(text)
   }
 
   return (
     <section aria-label={t('nav.support')} className="absolute inset-0 flex flex-col bg-ink-900">
       <header className="relative z-10 border-b border-white/[0.06] bg-ink-900/85 px-4 pb-3 pt-[calc(var(--sat)+10px)] backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          {openRequests ? <span className="grid size-12 place-items-center rounded-full bg-brand-blue"><LogoMark className="h-7" /></span> : <span className="relative">
+          {live ? <span className="grid size-12 place-items-center rounded-full bg-brand-blue"><LogoMark className="h-7" /></span> : <span className="relative">
             <Avatar id={PHOTOS.mariam} alt={t('chat.agentName')} className="size-12" />
             <span aria-hidden className="absolute bottom-0 end-0 size-3.5 rounded-full bg-success ring-[3px] ring-ink-900" />
           </span>}
           <div className="min-w-0 flex-1">
             <p className="text-[16px] font-semibold">
-              {openRequests ? L({ en: 'Travel desk', ar: 'مكتب السفر' }) : <>{t('chat.agentName')} <span className="text-[13px] font-medium text-fg-muted">· {t('chat.agentRole')}</span></>}
+              {live ? L({ en: 'Travel desk', ar: 'مكتب السفر' }) : <>{t('chat.agentName')} <span className="text-[13px] font-medium text-fg-muted">· {t('chat.agentRole')}</span></>}
             </p>
             <p className={cn('text-[12.5px]', agentTyping ? 'text-orange-300' : 'text-success')} aria-live="polite">
-              {openRequests ? t('brand.full') : agentTyping ? t('chat.typing') : t('chat.online')}
+              {live ? t('brand.full') : typing ? t('chat.typing') : t('chat.online')}
             </p>
           </div>
           <a href={CONTACT.phoneHref} aria-label={t('chat.callAria')} className="grid size-11 place-items-center rounded-full border border-white/10 bg-white/[0.05] transition-colors hover:bg-white/[0.09]">
@@ -168,31 +196,36 @@ export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
         </div>
       </header>
 
-      <div ref={scroller} className="no-scrollbar relative flex-1 overflow-y-auto overscroll-contain px-4" style={{ paddingBottom: clearance + 116 }}>
+      <div ref={scroller} className="no-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4" style={{ paddingBottom: clearance + 128 }}>
         <div className="mx-auto mt-5 flex max-w-[290px] flex-col items-center rounded-[22px] border border-white/[0.07] bg-white/[0.03] px-5 py-4 text-center">
           <LogoMark className="h-7 w-auto" />
           <p className="mt-3 text-[13px] font-semibold">{t('brand.full')}</p>
           <p className="mt-1 flex items-center gap-1.5 text-[12px] text-fg-muted">
             <Clock3 className="size-3.5" />
-            {openRequests ? <a href={CONTACT.emailHref}>{CONTACT.email}</a> : t('brand.hours')}
+            {t('brand.hours')}
           </p>
         </div>
-        {openRequests ? <div className="my-6 text-center"><p className="text-[14px] leading-relaxed text-fg-muted">{L({ en: 'Open a travel request to message the desk about your itinerary.', ar: 'افتح طلب السفر لمراسلة المكتب بشأن برنامج رحلتك.' })}</p></div> : <><p className="my-5 text-center text-[11.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">{t('chat.today')}</p>
+        {live?.controls}
+        {live?.empty && <p className="my-6 text-center text-sm text-fg-muted" role="status">{live.empty}</p>}
+        {!live && <p className="my-5 text-center text-[11.5px] font-semibold uppercase tracking-[0.12em] text-fg-subtle">{t('chat.today')}</p>}
         <ul className="space-y-3" aria-live="polite">
-          {chat.map((message) => (
+          {messages.map((message) => (
             <Bubble key={message.id} message={message} />
           ))}
-          <AnimatePresence>{agentTyping && <Typing />}</AnimatePresence>
-        </ul></>}
+          <AnimatePresence>{typing && <Typing />}</AnimatePresence>
+        </ul>
       </div>
 
       <div className="absolute inset-x-0 z-20 px-3" style={{ bottom: `calc(var(--sab) + ${clearance}px)` }}>
-        {openRequests ? <button type="button" onClick={openRequests} className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-brand-orange font-semibold text-ink-950"><SendHorizontal className="size-5" />{L({ en: 'Message about a request', ar: 'مراسلة المكتب بشأن طلب' })}</button> : <><div className="no-scrollbar -mx-3 mb-2.5 flex gap-2 overflow-x-auto px-3">
+        {error && <p className="mb-2 rounded-xl bg-ink-900 px-3 py-2 text-sm text-danger" role="alert">{error}</p>}
+        {live?.action && <Button className="mb-2" block onClick={live.action.run}>{live.action.label}</Button>}
+        <div className="no-scrollbar -mx-3 mb-2.5 flex gap-2 overflow-x-auto px-3">
           {QUICK_REPLIES.map((key) => (
             <button
               key={key}
               type="button"
-              onClick={() => send(t(key))}
+              disabled={Boolean(live && !live.action && (!live.send || sending))}
+              onClick={() => live?.action ? live.action.run() : void send(t(key))}
               className="glass h-9 shrink-0 rounded-full px-3.5 text-[13px] font-medium text-fg transition-colors hover:bg-white/10"
             >
               {t(key)}
@@ -200,17 +233,23 @@ export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
           ))}
         </div>
         <form onSubmit={submit} className="flex items-center gap-2">
-          <IconButton label={t('chat.attach')} variant="glass" onClick={() => toast(t('chat.attachToast'))}>
+          <IconButton label={t('chat.attach')} variant="glass" onClick={() => {
+            if (live?.attach) live.attach()
+            else if (live) toast(L({ en: 'The desk can request a photo in your travel file.', ar: 'يمكن للمكتب طلب صورة في ملف سفرك.' }))
+            else toast(t('chat.attachToast'))
+          }}>
             <Paperclip />
           </IconButton>
           <div className="glass flex h-12 min-w-0 flex-1 items-center rounded-full px-4 focus-within:border-brand-orange/60">
             <input
               value={text}
+              disabled={Boolean(live && !live.send)}
               onChange={(event) => setText(event.target.value)}
               placeholder={t('chat.placeholder')}
               aria-label={t('chat.placeholder')}
               dir="auto"
               enterKeyHint="send"
+              maxLength={1000}
               className="h-full min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-fg-subtle focus-visible:outline-none"
             />
           </div>
@@ -219,6 +258,7 @@ export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
               <motion.button
                 key="send"
                 type="submit"
+                disabled={sending}
                 aria-label={t('chat.send')}
                 initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -233,7 +273,7 @@ export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
                 key="mic"
                 type="button"
                 aria-label={t('chat.voice')}
-                onClick={() => toast(t('chat.voiceToast'))}
+                onClick={() => toast(live ? L({ en: 'You can type a message or call the desk.', ar: 'يمكنك كتابة رسالة أو الاتصال بالمكتب.' }) : t('chat.voiceToast'))}
                 initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.6, opacity: 0 }}
@@ -244,7 +284,7 @@ export function SupportScreen({ openRequests }: { openRequests?: () => void }) {
               </motion.button>
             )}
           </AnimatePresence>
-        </form></>}
+        </form>
       </div>
       <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[220px] bg-[linear-gradient(0deg,#081226_45%,rgba(8,18,38,0))]" />
     </section>

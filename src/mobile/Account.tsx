@@ -1,10 +1,23 @@
-import { Eye, EyeOff, KeyRound, LockKeyhole, Mail } from "lucide-react";
-import { TextField } from "@/ui/Field";
 import { useState, type FormEvent } from "react";
+import { KeyRound, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { CONTACT } from "@/data/demo";
+import { AuthLayout, OrDivider, PasswordToggle, SocialButtons } from "@/screens/welcome/Auth";
+import { useI18n } from "@/state/store";
+import { Button } from "@/ui/Button";
+import { TextField } from "@/ui/Field";
+import { InternationalPhone } from "@/ui/InternationalPhone";
 import { api, ApiError, clearSession, remember, type Session } from "./api";
 import { useText } from "./ui";
 
-type Mode = "login" | "register" | "reset" | "setup";
+type Mode = "login" | "register" | "invite" | "reset" | "setup";
+type Registration = {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+  acceptedTerms: true;
+};
+
 export function Account({
   email,
   onSession,
@@ -12,54 +25,81 @@ export function Account({
   inviteOnly,
   deleting,
   onDone,
+  onBack,
+  startWithSignup,
+  toggleLang,
+  remove,
 }: {
   email: string | null;
-  onSession: (email: string | null) => void;
+  onSession: (session: Session) => void;
   token: string;
   inviteOnly: boolean;
   deleting: boolean;
   onDone: () => void;
+  onBack: () => void;
+  startWithSignup: boolean;
+  toggleLang: () => void;
+  remove: () => void;
 }) {
   const t = useText();
+  const { t: copy, lang } = useI18n();
+  const [mode, setMode] = useState<Mode>(token ? "setup" : startWithSignup ? "register" : "login");
+  const [registration, setRegistration] = useState<Registration | null>(null);
   const [visible, setVisible] = useState(false);
-  const [mode, setMode] = useState<Mode>(token ? "setup" : "login");
-  const activating = inviteOnly && mode === "register";
-  const choosingPassword = activating || mode === "setup";
-  const [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState(""),
-    [error, setError] = useState("");
-  const change = (value: Mode) => {
-    setMode(value);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const registering = !email && mode === "register" && inviteOnly;
+  const passwordSetup = registering || mode === "setup";
+  const origin = import.meta.env.VITE_TRAVEL_ORIGIN || window.location.origin;
+
+  function change(next: Mode) {
+    if (next !== "invite" && next !== "register") setRegistration(null);
     setVisible(false);
     setError("");
     setNotice("");
-  };
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+    setMode(next);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     if (busy) return;
-    const form = e.currentTarget,
-      data = new FormData(form),
-      address = String(data.get("email") || ""),
-      password = String(data.get("password") || "");
-    setBusy(true);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const address = String(data.get("email") || "").trim();
+    const password = String(data.get("password") || "");
     setError("");
     setNotice("");
+
+    if (registering) {
+      const fullName = String(data.get("fullName") || "").trim();
+      const phone = String(data.get("phone") || "");
+      if (fullName.length < 2) return setError(copy("auth.nameError"));
+      if (!phone) return setError(copy("auth.phoneError"));
+      if (!data.has("acceptedTerms")) return setError(copy("auth.termsError"));
+      setRegistration({ fullName, email: address, phone, password, acceptedTerms: true });
+      change("invite");
+      return;
+    }
+
+    setBusy(true);
     try {
       if (email) {
         await api(deleting ? "delete" : "logout", deleting ? { password } : {});
         clearSession();
-        onSession(null);
+        onSession({ email: null });
         onDone();
-      } else if (mode === "login" || activating) {
-        const session = activating
-          ? await api<Session>("activate", {
-              email: address,
-              code: String(data.get("code") || "").trim(),
-              password,
-            })
-          : await api<Session>("login", { email: address, password });
+      } else if (mode === "login" || (mode === "invite" && registration)) {
+        const session =
+          mode === "invite"
+            ? await api<Session>("activate", {
+                ...registration,
+                code: String(data.get("code") || "").trim(),
+              })
+            : await api<Session>("login", { email: address, password });
+        setRegistration(null);
         remember(session);
-        onSession(session.email);
+        onSession(session);
         if (!deleting) onDone();
       } else if (mode === "setup") {
         await api("password", { token, password });
@@ -71,7 +111,7 @@ export function Account({
             "تم حفظ كلمة المرور. يمكنك تسجيل الدخول الآن.",
           ),
         );
-      } else {
+      } else if (mode === "register" || mode === "reset") {
         await api("email", { email: address, purpose: mode });
         setNotice(
           t(
@@ -80,85 +120,120 @@ export function Account({
           ),
         );
       }
-    } catch (e) {
-      if (!email && mode === "login" && e instanceof ApiError && e.status === 401) {
+    } catch (failure) {
+      if (!email && mode === "login" && failure instanceof ApiError && failure.status === 401) {
         setError(
-          inviteOnly
-            ? t(
-                "Sign-in failed. Check your email and password. If you have an invite code, choose Create an account below.",
-                "تعذّر تسجيل الدخول. تحقّق من بريدك الإلكتروني وكلمة المرور. إذا كان لديك رمز دعوة، اختر إنشاء حساب أدناه.",
-              )
-            : t(
-                "Sign-in failed. Check your email and password, or choose Forgot password below.",
-                "تعذّر تسجيل الدخول. تحقّق من بريدك الإلكتروني وكلمة المرور، أو اختر نسيت كلمة المرور أدناه.",
-              ),
+          t(
+            "Sign-in failed. Check your email and password. If you’re new, choose Create account below.",
+            "تعذّر تسجيل الدخول. تحقّق من بريدك الإلكتروني وكلمة المرور. إذا كنت مستخدماً جديداً، اختر إنشاء حساب أدناه.",
+          ),
         );
       } else {
-        setError(e instanceof Error ? e.message : t("Please try again.", "حاول مجدداً."));
+        setError(
+          failure instanceof Error ? failure.message : t("Please try again.", "حاول مجدداً."),
+        );
       }
     } finally {
       setBusy(false);
     }
   }
+
   const title = email
     ? deleting
       ? t("Delete your account", "حذف حسابك")
       : t("Your account", "حسابك")
-    : mode === "setup"
-      ? t("Choose a password", "اختر كلمة مرور")
+    : mode === "login"
+      ? copy("auth.welcome")
       : mode === "register"
-        ? t("Create an account", "إنشاء حساب")
-        : mode === "reset"
-          ? t("Reset your password", "استعادة كلمة المرور")
-          : t("Sign in", "تسجيل الدخول");
-  return (
-    <section className="panel account">
-      <h1>{title}</h1>
-      {!email && mode === "login" && (
-        <p>
-          {inviteOnly
+        ? copy("auth.createTitle")
+        : mode === "invite"
+          ? t("Enter your invite code", "أدخل رمز الدعوة")
+          : mode === "reset"
+            ? t("Reset your password", "استعادة كلمة المرور")
+            : t("Choose a password", "اختر كلمة مرور");
+
+  const subtitle = email
+    ? deleting
+      ? t(
+          "Confirm your password to permanently remove your account and travel data.",
+          "أكّد كلمة مرورك لإزالة حسابك وبيانات سفرك نهائياً.",
+        )
+      : email
+    : mode === "login"
+      ? copy("auth.signinSub")
+      : mode === "register"
+        ? copy("auth.createSub")
+        : mode === "invite"
+          ? t(
+              "Use the code the travel desk issued for your email.",
+              "استخدم الرمز الذي أصدره مكتب السفر لبريدك الإلكتروني.",
+            )
+          : mode === "reset"
             ? t(
-                "Use your account email and password. If this is your first visit and you have an invite code, create an account below.",
-                "استخدم بريد حسابك وكلمة المرور. إذا كانت هذه زيارتك الأولى ولديك رمز دعوة، أنشئ حساباً أدناه.",
+                "Enter your account email to request a reset link.",
+                "أدخل بريد حسابك لطلب رابط إعادة التعيين.",
               )
-            : t(
-                "Sign in to manage your bookings, visas and trips.",
-                "سجّل الدخول لإدارة حجوزاتك وتأشيراتك ورحلاتك.",
-              )}
-        </p>
-      )}
-      {!email && activating && (
-        <p>
-          {t(
-            "Enter the email you gave the travel desk and the invite code they shared. Then choose your password.",
-            "أدخل البريد الإلكتروني الذي أعطيته لمكتب السفر ورمز الدعوة الذي أرسله إليك، ثم اختر كلمة مرور.",
-          )}
-        </p>
-      )}
-      {deleting && (
-        <p>
-          {t(
-            "Deletion permanently removes your travel requests, quotes, messages and submitted photos. Sign in and confirm with your current password.",
-            "يؤدي الحذف إلى إزالة طلبات السفر وعروض الأسعار والرسائل والصور المرسلة نهائياً. سجّل الدخول ثم أكّد بكلمة مرورك الحالية.",
-          )}
-        </p>
-      )}
-      {email && <p dir="auto">{email}</p>}
-      <form onSubmit={submit} key={String(!!email) + mode}>
-        {!email && mode !== "setup" && (
+            : t("Use at least 12 characters.", "استخدم ١٢ حرفاً على الأقل.");
+
+  const mainButton = email
+    ? deleting
+      ? title
+      : t("Sign out", "تسجيل الخروج")
+    : mode === "login"
+      ? copy("auth.signin")
+      : mode === "register" || mode === "invite"
+        ? copy("auth.createAccount")
+        : mode === "setup"
+          ? t("Save password", "حفظ كلمة المرور")
+          : t("Send email link", "إرسال الرابط");
+
+  return (
+    <AuthLayout
+      title={title}
+      subtitle={subtitle}
+      onBack={mode === "invite" ? () => change("register") : onBack}
+      trailing={
+        <button
+          type="button"
+          onClick={toggleLang}
+          className="text-[13px] font-semibold text-orange-300"
+        >
+          {lang === "ar" ? "English" : "العربية"}
+        </button>
+      }
+    >
+      <form key={String(Boolean(email)) + mode} onSubmit={submit} className="space-y-4">
+        {registering && (
           <TextField
-            label={t("Email address", "البريد الإلكتروني")}
+            label={copy("auth.fullName")}
+            icon={<UserRound />}
+            name="fullName"
+            autoComplete="name"
+            defaultValue={registration?.fullName}
+            placeholder="Ahmed Mohamed"
+            minLength={2}
+            maxLength={150}
+            required
+          />
+        )}
+        {!email && mode !== "setup" && mode !== "invite" && (
+          <TextField
+            label={copy("auth.email")}
             icon={<Mail />}
             name="email"
             type="email"
-            autoComplete={mode === "login" || activating ? "username" : "email"}
+            autoComplete="username"
             autoCapitalize="none"
+            inputMode="email"
+            defaultValue={registration?.email}
+            placeholder="name@email.com"
             required
             maxLength={150}
             ltr
           />
         )}
-        {!email && activating && (
+        {registering && <InternationalPhone required initialValue={registration?.phone} />}
+        {mode === "invite" && !email && (
           <TextField
             label={t("Invite code", "رمز الدعوة")}
             icon={<KeyRound />}
@@ -171,90 +246,120 @@ export function Account({
             ltr
           />
         )}
-        {(email ? deleting : mode === "login" || choosingPassword) && (
+        {(email ? deleting : mode === "login" || passwordSetup) && (
           <TextField
-            label={t("Password", "كلمة المرور")}
+            label={copy("auth.password")}
             icon={<LockKeyhole />}
             name="password"
             type={visible ? "text" : "password"}
-            autoComplete={choosingPassword ? "new-password" : "current-password"}
-            minLength={choosingPassword ? 12 : 1}
+            defaultValue={registering ? registration?.password : undefined}
+            autoComplete={passwordSetup ? "new-password" : "current-password"}
+            minLength={passwordSetup ? 12 : 1}
             maxLength={256}
             required
-            hint={
-              choosingPassword
-                ? t("Use at least 12 characters.", "استخدم ١٢ حرفاً على الأقل.")
-                : undefined
-            }
-            trailing={
-              <button
-                type="button"
-                aria-label={
-                  visible
-                    ? t("Hide password", "إخفاء كلمة المرور")
-                    : t("Show password", "إظهار كلمة المرور")
-                }
-                onClick={() => setVisible((v) => !v)}
-                className="grid size-9 place-items-center text-fg-subtle"
-              >
-                {visible ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
-              </button>
-            }
+            ltr
+            trailing={<PasswordToggle visible={visible} onToggle={() => setVisible(!visible)} />}
           />
         )}
-        <button className={email && deleting ? "danger" : "primary"} disabled={busy}>
-          {busy
-            ? t("Please wait…", "يرجى الانتظار…")
-            : email
-              ? deleting
-                ? title
-                : t("Sign out", "تسجيل الخروج")
-              : mode === "login" || activating
-                ? title
-                : mode === "setup"
-                  ? t("Save password", "حفظ كلمة المرور")
-                  : t("Send email link", "إرسال الرابط")}
-        </button>
-      </form>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p role="status" className="notice">
-          {notice}
-        </p>
-      )}
-      {!email && (
-        <div className="links">
-          {mode !== "login" && (
-            <button type="button" disabled={busy} onClick={() => change("login")}>
-              {t("Back to sign in", "العودة إلى تسجيل الدخول")}
-            </button>
-          )}
-          {mode === "login" && (
-            <>
-              <button type="button" disabled={busy} onClick={() => change("register")}>
-                {t("Create an account", "إنشاء حساب")}
+        {!email && mode === "login" && (
+          <div className="flex justify-end">
+            {inviteOnly ? (
+              <a href={CONTACT.emailHref} className="text-[13px] font-semibold text-orange-300">
+                {copy("auth.forgot")}
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => change("reset")}
+                className="text-[13px] font-semibold text-orange-300"
+              >
+                {copy("auth.forgot")}
               </button>
-              {!inviteOnly && (
-                <button type="button" disabled={busy} onClick={() => change("reset")}>
-                  {t("Forgot password?", "نسيت كلمة المرور؟")}
-                </button>
-              )}
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+        {registering && (
+          <label className="flex items-start gap-3 pt-1 text-[13px] leading-relaxed text-fg-muted">
+            <input
+              name="acceptedTerms"
+              type="checkbox"
+              defaultChecked={registration?.acceptedTerms}
+              required
+              className="mt-0.5 size-5 shrink-0 accent-brand-orange"
+            />
+            <span>
+              {t("I agree to the", "أوافق على")}{" "}
+              <a href={origin + "/terms"} target="_blank" rel="noreferrer" className="text-fg">
+                {t("Terms of Service", "شروط الخدمة")}
+              </a>{" "}
+              {t("and", "و")}{" "}
+              <a href={origin + "/privacy"} target="_blank" rel="noreferrer" className="text-fg">
+                {t("Privacy Policy", "سياسة الخصوصية")}
+              </a>
+              .
+            </span>
+          </label>
+        )}
+        {error && (
+          <p role="alert" className="rounded-2xl bg-danger/10 px-4 py-3 text-sm text-danger">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="rounded-2xl bg-success/10 px-4 py-3 text-sm text-success">
+            {notice}
+          </p>
+        )}
+        <Button
+          type="submit"
+          block
+          loading={busy}
+          variant={email && deleting ? "danger" : "primary"}
+          className={registering ? "!mt-6" : undefined}
+        >
+          {mainButton}
+        </Button>
+      </form>
+      {!email && (mode === "login" || mode === "register") && (
+        <>
+          <OrDivider />
+          <SocialButtons unavailable />
+          <p className="mt-2 text-center text-xs text-fg-subtle">
+            {t(
+              "Apple and Google sign-in are unavailable during testing.",
+              "تسجيل الدخول عبر Apple وGoogle غير متاح أثناء الاختبار.",
+            )}
+          </p>
+          <p className="mt-9 text-center text-[14px] text-fg-muted">
+            {copy(mode === "login" ? "auth.noAccount" : "auth.haveAccount")}{" "}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => change(mode === "login" ? "register" : "login")}
+              className="font-semibold text-orange-300 hover:text-orange-200"
+            >
+              {copy(mode === "login" ? "auth.createAccount" : "auth.signin")}
+            </button>
+          </p>
+        </>
       )}
-      {!email && inviteOnly && mode === "login" && (
-        <p className="muted">
-          {t(
-            "Contact the travel desk if you need an invite code or help with your password.",
-            "تواصل مع مكتب السفر إذا كنت بحاجة إلى رمز دعوة أو مساعدة في كلمة المرور.",
-          )}
-        </p>
+      {!email && (mode === "reset" || mode === "setup") && (
+        <Button
+          className="mt-5"
+          type="button"
+          variant="ghost"
+          block
+          disabled={busy}
+          onClick={() => change("login")}
+        >
+          {copy("auth.signin")}
+        </Button>
       )}
-    </section>
+      {email && !deleting && (
+        <Button className="mt-5" type="button" variant="ghost" block onClick={remove}>
+          {t("Delete my account", "حذف حسابي")}
+        </Button>
+      )}
+    </AuthLayout>
   );
 }

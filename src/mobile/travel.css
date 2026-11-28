@@ -183,35 +183,13 @@
   background: #3ddc9716;
   color: #96efc7;
 }
-.desk .trip-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  text-align: start;
-  padding: 16px;
-  border: 1px solid #ffffff15;
-  background: #ffffff09;
-  border-radius: 18px;
-  margin: 12px 0;
-}
-.desk .trip-row small,
-.desk .trip-row strong {
-  display: block;
-}
-.desk .trip-row > span:last-child {
-  font-size: 12px;
-  color: var(--color-fg-muted);
-}
 .desk .status-strip {
   display: flex;
   gap: 10px;
   font-weight: 600;
   font-size: 14px;
 }
-.desk .offer,
-.desk .message {
+.desk .offer {
   padding: 16px;
   background: #ffffff09;
   border: 1px solid #ffffff14;
@@ -221,26 +199,10 @@
 .desk .offer strong {
   font-size: 22px;
 }
-.desk .offer p,
-.desk .message p {
+.desk .offer p {
   white-space: pre-wrap;
   margin: 0;
 }
-.desk .message.staff {
-  border-inline-start: 3px solid var(--color-brand-orange);
-}
 .desk .policy p {
   margin-top: 8px;
-}
-
-.desk .account input {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  min-height: 0;
-  height: 100%;
-  border-radius: 0;
-}
-.desk .account input:focus {
-  outline: 0;
 }
